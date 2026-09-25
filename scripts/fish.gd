@@ -1,6 +1,7 @@
 class_name Fish
 extends Area2D
 
+const FISH_SCALE := 0.38  # iter3: Dave-like small fish silhouettes
 var game
 var species: Dictionary
 var vel := Vector2.ZERO
@@ -28,13 +29,13 @@ func setup(p_game: Node2D, p_species: Dictionary, pos: Vector2) -> void:
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = sf
 	sprite.play("swim")
-	sprite.scale = Vector2(0.75, 0.75)
+	sprite.scale = Vector2(FISH_SCALE, FISH_SCALE)
 	add_child(sprite)
 	# collision shape sized to silhouette
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	var tex: Texture2D = sf.get_frame_texture("swim", 0)
-	rect.size = tex.get_size() * 0.8
+	rect.size = tex.get_size() * FISH_SCALE
 	shape.shape = rect
 	add_child(shape)
 	_pick_wander_target()
@@ -87,9 +88,9 @@ func _physics_process(delta: float) -> void:
 	global_position.x = clampf(global_position.x, 40.0, 2520.0)
 	global_position.y = clampf(global_position.y, 120.0, 1470.0)
 	if vel.x < -5.0:
-		sprite.scale.x = -0.75
+		sprite.scale.x = -FISH_SCALE
 	elif vel.x > 5.0:
-		sprite.scale.x = 0.75
+		sprite.scale.x = FISH_SCALE
 
 func catch() -> void:
 	caught = true

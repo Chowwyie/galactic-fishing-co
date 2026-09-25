@@ -41,7 +41,7 @@ func _ready() -> void:
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = sf
 	sprite.play("idle")
-	sprite.scale = Vector2(0.85, 0.85)
+	sprite.scale = Vector2(0.72, 0.72)
 	add_child(sprite)
 	# bubble trail
 	bubbles = CPUParticles2D.new()
@@ -63,6 +63,7 @@ func _ready() -> void:
 	cam = Camera2D.new()
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 6.0
+	cam.zoom = Vector2(0.88, 0.88)  # iter3: Dave-like framing, environment dominates
 	cam.limit_left = 0
 	cam.limit_right = 2560
 	cam.limit_top = -220
@@ -95,7 +96,7 @@ func _physics_process(delta: float) -> void:
 	if m.distance_squared_to(global_position) > 4.0:
 		aim_dir = (m - global_position).normalized()
 	sprite.rotation = aim_dir.angle()
-	sprite.scale.y = -0.85 if aim_dir.x < 0.0 else 0.85
+	sprite.scale.y = -0.72 if aim_dir.x < 0.0 else 0.72
 	# movement
 	var mv := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):

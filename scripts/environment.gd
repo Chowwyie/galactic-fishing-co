@@ -112,7 +112,7 @@ func _build_v3_accents() -> void:
 			"amp": 12.0, "speed": rng.randf_range(0.4, 0.7), "mode": "bob"})
 	# drifting glow plankton mid-water
 	var gp: Texture2D = load("res://assets/sprites/env-glow-plankton.png")
-	for i in range(6):
+	for i in range(4):
 		var pg := Vector2(rng.randf_range(60, ZONE_W - 60), rng.randf_range(300.0, 1200.0))
 		var g := _spr(gp, pg, rng.randf_range(0.4, 0.6), Color(0.7, 1.0, 0.9, 0.7))
 		add_child(g)

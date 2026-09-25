@@ -105,7 +105,7 @@ func _start_game() -> void:
 	title_layer.queue_free()
 
 func spawn_fish() -> void:
-	for i in range(24):
+	for i in range(18):
 		var depth := randf_range(180.0, 1350.0)
 		var options: Array = []
 		for s in FishData.SPECIES:
