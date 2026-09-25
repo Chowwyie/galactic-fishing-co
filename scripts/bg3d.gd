@@ -21,13 +21,17 @@ var tube_mesh: CylinderMesh
 var cone_mesh: CylinderMesh
 
 var mat_rock_near: StandardMaterial3D
+var mat_rock_near_b: StandardMaterial3D
 var mat_rock_mid: StandardMaterial3D
+var mat_rock_mid_b: StandardMaterial3D
 var mat_rock_far: StandardMaterial3D
 var mat_wall: StandardMaterial3D
 var mat_sand: StandardMaterial3D
 var mat_coral: StandardMaterial3D
 var mat_sponge: StandardMaterial3D
 var mat_anemone: StandardMaterial3D
+
+var boulder_meshes: Array[ArrayMesh] = []
 
 func _ready() -> void:
 	viewport = get_viewport() as SubViewport
@@ -44,6 +48,7 @@ func _ready() -> void:
 	cone_mesh.bottom_radius = 0.6
 	cone_mesh.height = 1.0
 	_build_materials()
+	_build_boulders()
 	_build_environment()
 	_build_light()
 	_build_camera()
@@ -63,13 +68,69 @@ func _mat(c: Color) -> StandardMaterial3D:
 
 func _build_materials() -> void:
 	mat_rock_near = _mat(Color(0.30, 0.44, 0.58))
+	mat_rock_near_b = _mat(Color(0.24, 0.38, 0.52))
 	mat_rock_mid = _mat(Color(0.33, 0.49, 0.64))
+	mat_rock_mid_b = _mat(Color(0.38, 0.53, 0.66))
 	mat_rock_far = _mat(Color(0.36, 0.53, 0.69))
 	mat_wall = _mat(Color(0.10, 0.23, 0.40))
 	mat_sand = _mat(Color(0.72, 0.68, 0.52))
 	mat_coral = _mat(Color(0.95, 0.45, 0.55))
 	mat_sponge = _mat(Color(0.25, 0.75, 0.70))
 	mat_anemone = _mat(Color(1.00, 0.62, 0.30))
+
+# Irregular faceted boulders: a subdivided box with seeded vertex jitter and
+# flat face normals. A plain BoxMesh reads as a glass cube; this reads as rock.
+func _build_boulders() -> void:
+	for i in 4:
+		boulder_meshes.append(_make_boulder(5000 + i * 131))
+
+func _make_boulder(salt: int) -> ArrayMesh:
+	var r := RandomNumberGenerator.new()
+	r.seed = salt
+	var bm := BoxMesh.new()
+	bm.subdivide_width = 3
+	bm.subdivide_height = 3
+	bm.subdivide_depth = 3
+	bm.size = Vector3.ONE
+	var src := ArrayMesh.new()
+	src.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, bm.surface_get_arrays(0))
+	var mdt := MeshDataTool.new()
+	mdt.create_from_surface(src, 0)
+	var seen := {}
+	for i in mdt.get_vertex_count():
+		var v := mdt.get_vertex(i)
+		var key := "%0.2f|%0.2f|%0.2f" % [v.x, v.y, v.z]
+		if not seen.has(key):
+			seen[key] = v + Vector3(r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28))
+		mdt.set_vertex(i, seen[key])
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	for f in mdt.get_face_count():
+		var a := mdt.get_vertex(mdt.get_face_vertex(f, 0))
+		var b := mdt.get_vertex(mdt.get_face_vertex(f, 1))
+		var c := mdt.get_vertex(mdt.get_face_vertex(f, 2))
+		var n := (b - a).cross(c - a)
+		if n.length() < 0.00001:
+			continue
+		n = n.normalized()
+		verts.append_array(PackedVector3Array([a, b, c]))
+		normals.append_array(PackedVector3Array([n, n, n]))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = normals
+	var out := ArrayMesh.new()
+	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return out
+
+func _boulder(pos: Vector3, scl: Vector3, rot: Vector3, mat: Material, variant: int) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = boulder_meshes[variant % boulder_meshes.size()]
+	mi.position = pos
+	mi.scale = scl
+	mi.rotation = rot
+	mi.material_override = mat
+	add_child(mi)
 
 func _build_environment() -> void:
 	# Flat background color; the water-column gradient is a giant unshaded
@@ -81,7 +142,7 @@ func _build_environment() -> void:
 	e.background_color = Color(0.16, 0.42, 0.62)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.38, 0.58, 0.72)
-	e.ambient_light_energy = 0.85
+	e.ambient_light_energy = 0.62
 	e.fog_enabled = true
 	e.fog_mode = Environment.FOG_MODE_DEPTH
 	e.fog_light_color = Color(0.22, 0.50, 0.68)
@@ -178,75 +239,89 @@ func _build_floor() -> void:
 	mi.position = Vector3(1280, -1562, -260)
 	add_child(mi)
 
-func _rock_cluster(cx: float, cy: float, cz: float, base: float, n: int, spread: float, rise: float, mat: Material, salt: int) -> void:
+func _rock_cluster(cx: float, cy: float, cz: float, base: float, n: int, spread: float, rise: float, mat: Material, mat2: Material, salt: int) -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 1000 + salt
 	for i in n:
 		var s := base * r.randf_range(0.45, 1.25)
-		_box(
+		_boulder(
 			Vector3(cx + r.randf_range(-spread, spread), cy + r.randf_range(0.0, rise), cz + r.randf_range(-40.0, 40.0)),
 			Vector3(s * r.randf_range(0.7, 1.5), s * r.randf_range(0.6, 1.3), s * r.randf_range(0.5, 1.0)),
 			Vector3(r.randf_range(-0.35, 0.35), r.randf_range(-0.7, 0.7), r.randf_range(-0.35, 0.35)),
-			mat)
+			mat if r.randf() < 0.6 else mat2,
+			r.randi() % 4)
 
 func _build_rock_bands() -> void:
-	# near band: chunky, darker — frames the gameplay plane
+	# near band: smaller boulders, pushed back so they read as background
 	var xs := [-120.0, 260.0, 640.0, 1020.0, 1400.0, 1780.0, 2160.0, 2540.0, 2700.0]
 	var salt := 0
 	for x in xs:
-		_rock_cluster(x, -1560.0, -100.0, 95.0, 6, 150.0, 130.0, mat_rock_near, salt)
+		_rock_cluster(x, -1560.0, -200.0, 62.0, 4, 150.0, 90.0, mat_rock_near, mat_rock_near_b, salt)
 		salt += 1
 	# mid band: bigger formations further back
 	for x in [-80.0, 340.0, 760.0, 1180.0, 1600.0, 2020.0, 2440.0, 2680.0]:
-		_rock_cluster(x, -1560.0, -300.0, 150.0, 6, 190.0, 260.0, mat_rock_mid, salt)
+		_rock_cluster(x, -1560.0, -380.0, 105.0, 5, 190.0, 200.0, mat_rock_mid, mat_rock_mid_b, salt)
 		salt += 1
 	# far band: tall, fog-hazed
 	for x in [0.0, 430.0, 860.0, 1290.0, 1720.0, 2150.0, 2580.0]:
-		_rock_cluster(x, -1560.0, -520.0, 210.0, 5, 230.0, 520.0, mat_rock_far, salt)
+		_rock_cluster(x, -1560.0, -560.0, 170.0, 5, 230.0, 480.0, mat_rock_far, mat_rock_far, salt)
 		salt += 1
-	# a few mid-water pillars for vertical interest
+	# mid-water rock spires: stacked boulders for vertical interest
 	var r := RandomNumberGenerator.new()
 	r.seed = 77
 	for i in 4:
 		var px: float = [-140.0, 420.0, 2140.0, 2700.0][i]
-		_box(Vector3(px, -950.0, -350.0),
-			Vector3(r.randf_range(70, 110), r.randf_range(380, 560), r.randf_range(60, 100)),
-			Vector3(r.randf_range(-0.12, 0.12), r.randf_range(-0.4, 0.4), r.randf_range(-0.1, 0.1)),
-			mat_rock_mid)
+		var ph := r.randf_range(380.0, 560.0)
+		var pw := r.randf_range(70.0, 110.0)
+		var py := -1560.0
+		for sgi in 4:
+			var t := float(sgi) / 3.0
+			_boulder(
+				Vector3(px + r.randf_range(-18.0, 18.0), py + t * ph + 20.0, -380.0 + r.randf_range(-20.0, 20.0)),
+				Vector3(pw * (1.0 - t * 0.45), ph / 4.0 * 1.35, pw * (1.0 - t * 0.45)),
+				Vector3(r.randf_range(-0.2, 0.2), r.randf_range(-0.5, 0.5), r.randf_range(-0.2, 0.2)),
+				mat_rock_mid if r.randf() < 0.6 else mat_rock_mid_b,
+				r.randi() % 4)
 
 func _build_distant_wall() -> void:
-	# dark silhouette canyon walls far behind everything
+	# dark silhouette canyon ridgeline far behind everything: overlapping
+	# jittered boulders so it reads as mountains, not floating rectangles
 	var r := RandomNumberGenerator.new()
 	r.seed = 4242
 	var x := -500.0
-	var salt := 9000
 	while x < 3100.0:
 		var w := r.randf_range(280.0, 520.0)
-		var h := r.randf_range(500.0, 850.0)
-		_box(Vector3(x + w * 0.5, -1560.0 + h * 0.5, -850.0 + r.randf_range(-60.0, 60.0)),
-			Vector3(w, h, r.randf_range(120.0, 220.0)),
-			Vector3(0, r.randf_range(-0.25, 0.25), 0),
-			mat_wall)
-		x += w * r.randf_range(0.55, 0.8)
-		salt += 1
+		var h := r.randf_range(260.0, 560.0)
+		_boulder(
+			Vector3(x + w * 0.5, -1560.0 + h * 0.42 + r.randf_range(-70.0, 70.0), -950.0 + r.randf_range(-60.0, 60.0)),
+			Vector3(w * r.randf_range(0.9, 1.2), h, r.randf_range(140.0, 240.0)),
+			Vector3(r.randf_range(-0.15, 0.15), r.randf_range(-0.4, 0.4), r.randf_range(-0.15, 0.15)),
+			mat_wall,
+			r.randi() % 4)
+		x += w * r.randf_range(0.42, 0.6)
 
 func _build_corals() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 31337
-	# pink branching corals: stem + branches
+	# pink branching corals: stem + branches (tapered tubes, not boxes)
 	for i in 9:
 		var cx := r.randf_range(60.0, 2500.0)
 		var cz := r.randf_range(-110.0, -40.0)
 		var h := r.randf_range(50.0, 95.0)
-		_box(Vector3(cx, -1560.0 + h * 0.5, cz), Vector3(9, h, 9), Vector3.ZERO, mat_coral)
+		var stem := MeshInstance3D.new()
+		stem.mesh = tube_mesh
+		stem.material_override = mat_coral
+		stem.scale = Vector3(11, h, 11)
+		stem.position = Vector3(cx, -1560.0 + h * 0.5, cz)
+		add_child(stem)
 		for b in 3:
 			var ba := r.randf_range(-0.9, 0.9)
 			var bl := h * r.randf_range(0.35, 0.55)
 			var by := -1560.0 + h * r.randf_range(0.45, 0.85)
 			var br := MeshInstance3D.new()
-			br.mesh = box_mesh
+			br.mesh = tube_mesh
 			br.material_override = mat_coral
-			br.scale = Vector3(6, bl, 6)
+			br.scale = Vector3(7, bl, 7)
 			br.position = Vector3(cx + sin(ba) * bl * 0.4, by, cz)
 			br.rotation = Vector3(0, 0, ba)
 			add_child(br)

@@ -57,10 +57,10 @@ func _build_gameplay_accents() -> void:
 		weeds.append({"node": a, "phase": randf() * TAU})
 
 func _build_foreground_accents() -> void:
-	# dark seaweed framing the view (no parallax — the 3D world carries depth now)
+	# dark background seaweed tufts, kept small and faint so they read as distant plants
 	var f0: Texture2D = load("res://assets/sprites/seaweed_fg_0.png")
 	var f1: Texture2D = load("res://assets/sprites/seaweed_fg_1.png")
-	for i in range(12):
+	for i in range(8):
 		var a := AnimatedSprite2D.new()
 		var sf := SpriteFrames.new()
 		sf.add_animation("sway")
@@ -69,9 +69,9 @@ func _build_foreground_accents() -> void:
 		sf.add_frame("sway", f1)
 		a.sprite_frames = sf
 		a.play("sway")
-		a.scale = Vector2(randf_range(1.0, 1.8), randf_range(1.0, 1.8))
-		a.position = Vector2(randf_range(-100, ZONE_W + 100), randf_range(100, 1500))
-		a.modulate = Color(0.35, 0.55, 0.65, 0.85)
+		a.scale = Vector2(randf_range(0.6, 1.0), randf_range(0.6, 1.0))
+		a.position = Vector2(randf_range(-100, ZONE_W + 100), randf_range(200, 1400))
+		a.modulate = Color(0.4, 0.6, 0.7, 0.5)
 		add_child(a)
 		weeds.append({"node": a, "phase": randf() * TAU})
 
