@@ -17,8 +17,18 @@ func build(p_game: Node2D) -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# --- catalog panel ---
 	panel = PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(560, 480)
+	# NB: set_anchors_preset(PRESET_CENTER) only pins the top-left corner to
+	# the viewport center; explicit symmetric offsets truly center the panel.
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -280
+	panel.offset_right = 280
+	panel.offset_top = -240
+	panel.offset_bottom = 240
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	panel.visible = false
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.04, 0.10, 0.18, 0.96)
@@ -43,11 +53,27 @@ func build(p_game: Node2D) -> void:
 	v.add_child(sub)
 	list = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 8)
-	v.add_child(list)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ScrollContainer caps the list's contribution to the panel's minimum size,
+	# so tall content can never push the panel off-screen again; rows scroll
+	# only if they ever exceed the available space.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	v.add_child(scroll)
 	# --- capture popup ---
 	capture = PanelContainer.new()
-	capture.set_anchors_preset(Control.PRESET_CENTER)
-	capture.custom_minimum_size = Vector2(520, 420)
+	capture.anchor_left = 0.5
+	capture.anchor_right = 0.5
+	capture.anchor_top = 0.5
+	capture.anchor_bottom = 0.5
+	capture.offset_left = -260
+	capture.offset_right = 260
+	capture.offset_top = -210
+	capture.offset_bottom = 210
+	capture.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	capture.grow_vertical = Control.GROW_DIRECTION_BOTH
 	capture.visible = false
 	capture.add_theme_stylebox_override("panel", style)
 	add_child(capture)
