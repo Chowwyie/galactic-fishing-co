@@ -144,19 +144,24 @@ func _build_v3_accents() -> void:
 		add_child(_spr(rip, pr2, rng.randf_range(1.5, 2.5), Color(1, 1, 1, 0.35)))
 
 func _build_rays() -> void:
-	for i in range(7):
-		var poly := Polygon2D.new()
-		var x := 120.0 + i * 380.0 + randf_range(-60, 60)
-		var top_w := randf_range(40, 90)
-		var bot_w := top_w + randf_range(120, 220)
-		var slant := 160.0
-		poly.polygon = PackedVector2Array([
-			Vector2(x - top_w * 0.5, -120), Vector2(x + top_w * 0.5, -120),
-			Vector2(x + slant + bot_w * 0.5, 1050), Vector2(x + slant - bot_w * 0.5, 1050),
-		])
-		poly.color = Color(0.82, 0.96, 1.0, 0.10)
-		add_child(poly)
-		rays.append({"node": poly, "phase": randf() * TAU, "speed": randf_range(0.4, 0.9)})
+	# Volumetric god-ray shafts: soft additive sprites, strongest near the
+	# surface and fading to nothing with dive depth (see _process).
+	var tex: Texture2D = load("res://assets/sprites/shaft_soft.png")
+	for i in range(9):
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		s.material = mat
+		var w := randf_range(170.0, 260.0)
+		s.scale = Vector2(w / 160.0, 1750.0 / 512.0)
+		s.position = Vector2(140.0 + i * 290.0 + randf_range(-70, 70), 640.0)
+		s.rotation = 0.15 + randf_range(-0.035, 0.035)
+		var base_a := randf_range(0.10, 0.17)
+		s.modulate = Color(0.62, 0.86, 1.0, base_a)
+		add_child(s)
+		rays.append({"node": s, "alpha": base_a, "phase": randf() * TAU, "speed": randf_range(0.35, 0.8)})
 
 func _build_surface() -> void:
 	# ripple shimmer bands seen from below, ping-ponging gently
@@ -209,8 +214,14 @@ func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	t += delta
+	var cam_y := 750.0
+	if game != null and game.player != null and game.player.cam != null:
+		cam_y = game.player.cam.get_screen_center_position().y
+	# God rays: full strength near the surface, gone by the abyss.
+	var ray_f := 1.0 - smoothstep(300.0, 1150.0, cam_y)
 	for r in rays:
-		(r["node"] as Polygon2D).modulate.a = 0.65 + 0.35 * sin(t * r["speed"] + r["phase"])
+		var rn: Sprite2D = r["node"]
+		rn.modulate.a = r["alpha"] * (0.7 + 0.3 * sin(t * r["speed"] + r["phase"])) * ray_f
 	for b in bands:
 		var n: Sprite2D = b["node"]
 		n.position.x = 640.0 + sin(t * b["speed"] + b["phase"]) * b["amp"]
