@@ -26,7 +26,6 @@ func build(p_game: Node2D) -> void:
 	_build_rays()
 	_build_surface()
 	_build_particles()
-	_build_v3_accents()
 
 func _spr(tex: Texture2D, pos: Vector2, scl: float, mod: Color = Color.WHITE) -> Sprite2D:
 	var s := Sprite2D.new()
