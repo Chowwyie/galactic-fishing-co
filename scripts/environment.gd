@@ -63,14 +63,24 @@ func _build_v3_accents() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260925
 	var tint := Color(0.8, 0.88, 0.95)
-	# batch E: far backdrop silhouettes, slow parallax behind everything
-	var back := [["env-distant-spires", 2, 2.8, 3.6], ["env-coral-forest", 1, 2.6, 3.2],
-		["env-cliff-wall", 1, 2.8, 3.4], ["env-distant-arch", 1, 2.6, 3.2]]
+	# batch E: far backdrop silhouettes, slow parallax behind everything.
+	# Rock forms only, so they read as canyon walls. The bottom 35% of each
+	# texture has a baked alpha fade so no hard horizontal edge shows where
+	# the wall meets open water. Coral-forest is tinted deep blue and kept in
+	# the lower band so it reads as a distant reef, never a floating island.
+	var rock_tint := Color(0.45, 0.58, 0.9, 0.85)
+	var reef_tint := Color(0.35, 0.48, 0.85, 0.85)
+	var back := [
+		["env-distant-spires", 2, 2.2, 3.0, 300.0, 950.0, rock_tint],
+		["env-cliff-wall", 1, 2.2, 3.0, 300.0, 950.0, rock_tint],
+		["env-distant-arch", 1, 2.2, 3.0, 300.0, 950.0, rock_tint],
+		["env-coral-forest", 1, 2.2, 2.8, 700.0, 950.0, reef_tint],
+	]
 	for bd in back:
 		var texe: Texture2D = load("res://assets/sprites/%s.png" % bd[0])
 		for i in range(bd[1]):
-			var pe := Vector2(rng.randf_range(150, ZONE_W - 150), rng.randf_range(300.0, 950.0))
-			var se := _spr(texe, pe, rng.randf_range(bd[2], bd[3]), Color(0.45, 0.58, 0.9, 0.85))
+			var pe := Vector2(rng.randf_range(150, ZONE_W - 150), rng.randf_range(bd[4], bd[5]))
+			var se := _spr(texe, pe, rng.randf_range(bd[2], bd[3]), bd[6])
 			add_child(se)
 			_pf(se, pe, 0.45)
 	# batch A: rocks near the floor (no 3D boulders on web — these are the rocks now)
