@@ -1,14 +1,14 @@
 ; Engine configuration file.
-; Galactic Fishing Co. — Godot 4, GL Compatibility (web export first)
+; Galactic Fishing Co. — Sunlit Shallows vertical slice.
 
 config_version=5
 
 [application]
 
 config/name="Galactic Fishing Co."
-config/description="Top-down 2D space fishing game. Dive, harpoon, sell, upgrade, descend."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://assets/sprites/diver_0.png"
 
 [display]
 
@@ -21,3 +21,5 @@ window/stretch/aspect="expand"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.05, 0.28, 0.45, 1)
