@@ -12,6 +12,7 @@ var rays: Array = []
 var bands: Array = []
 var dapples: Array = []
 var weeds: Array = []  # each: {node, phase}
+var bobbers: Array = []  # v3 accents: {node, base_y, phase, amp, speed, mode}
 
 const ZONE_W := 2560.0
 
@@ -22,6 +23,7 @@ func build() -> void:
 	_build_rays()
 	_build_surface()
 	_build_particles()
+	_build_v3_accents()
 
 func _spr(tex: Texture2D, pos: Vector2, scl: float, mod: Color = Color.WHITE) -> Sprite2D:
 	var s := Sprite2D.new()
@@ -152,3 +154,73 @@ func _process(delta: float) -> void:
 	for w in weeds:
 		var n3: AnimatedSprite2D = w["node"]
 		n3.rotation = sin(t * 0.9 + w["phase"]) * 0.07
+	for b in bobbers:
+		var bn: Sprite2D = b["node"]
+		if b["mode"] == "bob":
+			bn.position.y = b["base_y"] + sin(t * b["speed"] + b["phase"]) * b["amp"]
+		else:
+			bn.rotation = sin(t * b["speed"] + b["phase"]) * b["amp"]
+
+func _build_v3_accents() -> void:
+	# v3 pixel-art accents (batches A-D near the sandy floor / mid-water,
+	# batch E as far backdrop silhouettes) over the real 3D boulder base.
+	# Seeded so placement is stable across runs.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260925
+	var tint := Color(0.8, 0.88, 0.95)
+	# batch A: rocks near the floor (complement the 3D boulders, don't duplicate)
+	var rocks := [["env-mossy-boulder", 3, 0.7, 1.0], ["env-rock-spire", 2, 0.6, 0.9],
+		["env-rock-arch", 2, 0.7, 1.0], ["env-jagged-cluster", 2, 0.6, 0.9]]
+	for r in rocks:
+		var tex: Texture2D = load("res://assets/sprites/%s.png" % r[0])
+		for i in range(r[1]):
+			var sc := rng.randf_range(r[2], r[3])
+			var pos := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1560.0))
+			add_child(_spr(tex, pos, sc, tint))
+	# batch B: corals, gentle sway
+	var corals := [["env-brain-coral", 2], ["env-sea-fan", 2], ["env-mushroom-coral", 2], ["env-red-branching", 2]]
+	for c in corals:
+		var tex2: Texture2D = load("res://assets/sprites/%s.png" % c[0])
+		for i in range(c[1]):
+			var pos2 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1520.0))
+			var n := _spr(tex2, pos2, rng.randf_range(0.6, 0.9), tint)
+			add_child(n)
+			bobbers.append({"node": n, "base_y": pos2.y, "phase": rng.randf() * TAU,
+				"amp": 0.06, "speed": rng.randf_range(0.6, 1.1), "mode": "sway"})
+	# batch C: plants near the floor + drifting glow plankton mid-water
+	var plants := [["env-eelgrass", 3], ["env-feather-fern", 3], ["env-broad-leaf", 2]]
+	for pl in plants:
+		var tex3: Texture2D = load("res://assets/sprites/%s.png" % pl[0])
+		for i in range(pl[1]):
+			var pos3 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1520.0))
+			var n2 := _spr(tex3, pos3, rng.randf_range(0.7, 1.0), tint)
+			add_child(n2)
+			bobbers.append({"node": n2, "base_y": pos3.y, "phase": rng.randf() * TAU,
+				"amp": 0.08, "speed": rng.randf_range(0.7, 1.2), "mode": "sway"})
+	var gp: Texture2D = load("res://assets/sprites/env-glow-plankton.png")
+	for i in range(6):
+		var pos4 := Vector2(rng.randf_range(60, ZONE_W - 60), rng.randf_range(300.0, 1200.0))
+		var g := _spr(gp, pos4, rng.randf_range(0.5, 0.8), Color(0.7, 1.0, 0.9, 0.8))
+		add_child(g)
+		bobbers.append({"node": g, "base_y": pos4.y, "phase": rng.randf() * TAU,
+			"amp": 14.0, "speed": rng.randf_range(0.4, 0.8), "mode": "bob"})
+	# batch D: shells + sand ripples on the floor
+	var shells := [["env-starfish", 3, 0.5, 0.8], ["env-scallop-shell", 3, 0.5, 0.8], ["env-rubble-pile", 3, 0.5, 0.8]]
+	for sh in shells:
+		var tex4: Texture2D = load("res://assets/sprites/%s.png" % sh[0])
+		for i in range(sh[1]):
+			var sc2 := rng.randf_range(sh[2], sh[3])
+			var pos5 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1500.0, 1560.0))
+			add_child(_spr(tex4, pos5, sc2, tint))
+	var rip: Texture2D = load("res://assets/sprites/env-sand-ripples.png")
+	for i in range(3):
+		var pos6 := Vector2(rng.randf_range(100, ZONE_W - 100), rng.randf_range(1520.0, 1570.0))
+		add_child(_spr(rip, pos6, rng.randf_range(1.5, 2.5), Color(1, 1, 1, 0.35)))
+	# batch E: far backdrop silhouettes (dark blue art; tree order draws them behind fish/player)
+	var back := [["env-distant-spires", 2, 3.0, 3.6], ["env-coral-forest", 1, 2.8, 3.2],
+		["env-cliff-wall", 1, 3.0, 3.4], ["env-distant-arch", 1, 2.8, 3.2]]
+	for bd in back:
+		var tex5: Texture2D = load("res://assets/sprites/%s.png" % bd[0])
+		for i in range(bd[1]):
+			var pos7 := Vector2(rng.randf_range(100, ZONE_W - 100), rng.randf_range(350.0, 950.0))
+			add_child(_spr(tex5, pos7, rng.randf_range(bd[2], bd[3]), Color(0.5, 0.62, 0.92, 0.9)))

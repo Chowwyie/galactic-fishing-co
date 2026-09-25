@@ -13,6 +13,7 @@ const SPECIES: Array = [
 		"min_depth": 150.0,
 		"water": "fish_pink_sil",   # silhouette frames for swimming
 		"art": "fish_pink",          # detailed frames for catalog/capture
+		"portrait": "portrait_bubblescale.png",
 	},
 	{
 		"id": "orange",
@@ -23,6 +24,7 @@ const SPECIES: Array = [
 		"min_depth": 450.0,
 		"water": "fish_orange_sil",
 		"art": "fish_orange",
+		"portrait": "portrait_copperbelly.png",
 	},
 	{
 		"id": "teal",
@@ -33,6 +35,7 @@ const SPECIES: Array = [
 		"min_depth": 750.0,
 		"water": "fish_teal_sil",
 		"art": "fish_teal",
+		"portrait": "portrait_worrywart.png",
 	},
 ]
 

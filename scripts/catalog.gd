@@ -88,8 +88,7 @@ func _refresh_list() -> void:
 		d.custom_minimum_size = Vector2(360, 0)
 		col.add_child(d)
 		if game.caught_species.has(s["id"]):
-			var frames: Array = FishData.frames(s["art"])
-			pic.texture = frames[1]
+			pic.texture = load("res://assets/sprites/%s" % s["portrait"])
 			name_l.text = "%s  (x%d banked)" % [s["name"], game.caught_species[s["id"]]]
 			d.text = s["desc"]
 		else:
@@ -118,8 +117,7 @@ func show_capture(species: Dictionary) -> void:
 	h.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
 	v.add_child(h)
 	var pic := TextureRect.new()
-	var frames: Array = FishData.frames(species["art"])
-	pic.texture = frames[1]
+	pic.texture = load("res://assets/sprites/%s" % species["portrait"])
 	pic.custom_minimum_size = Vector2(240, 180)
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

@@ -29,7 +29,7 @@ func build(p_game: Node2D) -> void:
 	# physical ship sprite bobbing at the surface
 	ship = Sprite2D.new()
 	ship.texture = load("res://assets/sprites/ship.png")
-	ship.scale = Vector2(0.5, 0.5)
+	ship.scale = Vector2(1.0, 1.0)  # v3 pixel art is 200x139
 	ship.position = Vector2(1280, ship_base_y)
 	game.world.add_child(ship)
 	# dialogue panel (bottom strip)
