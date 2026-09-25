@@ -12,6 +12,7 @@ var dialog: PanelContainer
 var avatar: TextureRect
 var text_label: Label
 var btn_box: VBoxContainer
+var catch_strip: HBoxContainer
 var dialog_open := false
 var glitch_timer := 0.0
 var glitch_t := 0.0
@@ -35,8 +36,8 @@ func build(p_game: Node2D) -> void:
 	# dialogue panel (bottom strip)
 	dialog = PanelContainer.new()
 	dialog.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	dialog.custom_minimum_size = Vector2(0, 220)
-	dialog.offset_top = -240
+	dialog.custom_minimum_size = Vector2(0, 330)
+	dialog.offset_top = -350
 	dialog.visible = false
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.03, 0.09, 0.16, 0.97)
@@ -52,7 +53,7 @@ func build(p_game: Node2D) -> void:
 	h.add_theme_constant_override("separation", 18)
 	dialog.add_child(h)
 	avatar = TextureRect.new()
-	avatar.texture = load("res://assets/ship_avatar.webp")
+	avatar.texture = load("res://assets/ship_avatar_holo.png")
 	avatar.custom_minimum_size = Vector2(150, 150)
 	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -71,6 +72,9 @@ func build(p_game: Node2D) -> void:
 	text_label.custom_minimum_size = Vector2(700, 90)
 	text_label.add_theme_font_size_override("font_size", 15)
 	right.add_child(text_label)
+	catch_strip = HBoxContainer.new()
+	catch_strip.add_theme_constant_override("separation", 8)
+	right.add_child(catch_strip)
 	btn_box = VBoxContainer.new()
 	btn_box.add_theme_constant_override("separation", 6)
 	right.add_child(btn_box)
@@ -113,6 +117,20 @@ func _clear_buttons() -> void:
 	for c in btn_box.get_children():
 		c.queue_free()
 
+func _refresh_catch_strip(ids: Array) -> void:
+	for c in catch_strip.get_children():
+		c.queue_free()
+	for id in ids:
+		var sp: Dictionary = FishData.get_species(id)
+		if sp.is_empty():
+			continue
+		var pic := TextureRect.new()
+		pic.texture = load("res://assets/sprites/%s" % sp["portrait"])
+		pic.custom_minimum_size = Vector2(52, 39)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		catch_strip.add_child(pic)
+
 func _add_button(text: String, cb: Callable) -> void:
 	var b := Button.new()
 	b.text = text
@@ -127,6 +145,7 @@ func open_greeting() -> void:
 	dialog.visible = true
 	text_label.text = LINES["greeting"]
 	_clear_buttons()
+	_refresh_catch_strip(game.cargo_manifest)
 	var n: int = game.cargo_manifest.size()
 	_add_button("Sell catch (%d fish)" % n, _do_sell)
 	_add_button("Ship upgrades", open_shop)
@@ -141,6 +160,7 @@ func _do_sell() -> void:
 		_add_button("I'll find fish. Somehow.", close_dialog)
 		return
 	var total := 0
+	var sold_ids: Array = game.cargo_manifest.duplicate()
 	for id in game.cargo_manifest:
 		total += FishData.get_species(id)["value"]
 	p.credits += total
@@ -149,6 +169,7 @@ func _do_sell() -> void:
 	game.debt_remaining = maxi(0, game.debt_remaining - total)
 	game.sell_sparkle(Vector2(1280, 90))
 	game.add_shake(5.0)
+	_refresh_catch_strip(sold_ids)
 	text_label.text = "Sold %d fish for %d credits! Applied directly to your debt. Only %d remaining!\nEvery haul brings freedom closer. (Freedom is a registered trademark of Galactic Fishing Co.)" % [n, total, game.debt_remaining]
 	_add_button("Ship upgrades", open_shop)
 	_add_button("Back to the water", _farewell)
@@ -156,10 +177,12 @@ func _do_sell() -> void:
 func _farewell() -> void:
 	text_label.text = LINES["farewell"]
 	_clear_buttons()
+	_refresh_catch_strip([])
 	_add_button("Dive!", close_dialog)
 
 func open_shop() -> void:
 	_clear_buttons()
+	_refresh_catch_strip([])
 	var p = game.player
 	text_label.text = "Contractor improvement packages! One tier each. The Company invests in its assets. You are the asset."
 	var items := [
