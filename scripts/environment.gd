@@ -120,15 +120,16 @@ func _build_v3_accents() -> void:
 		add_child(nt)
 		bobbers.append({"node": nt, "base_y": pt.y, "phase": rng.randf() * TAU,
 			"amp": 12.0, "speed": rng.randf_range(0.4, 0.7), "mode": "bob"})
-	# drifting glow plankton mid-water
-	var gp: Texture2D = load("res://assets/sprites/env-glow-plankton.png")
+	# drifting glow plankton mid-water: soft light motes only, no rock body —
+	# they must never read as floating boulders
+	var gp: Texture2D = load("res://assets/sprites/glow.png")
 	for i in range(4):
 		var pg := Vector2(rng.randf_range(60, ZONE_W - 60), rng.randf_range(300.0, 1200.0))
-		var g := _spr(gp, pg, rng.randf_range(0.4, 0.6), Color(0.7, 1.0, 0.9, 0.7))
+		var g := _spr(gp, pg, rng.randf_range(1.2, 2.0), Color(0.55, 1.0, 0.85, 0.55))
 		add_child(g)
 		_pf(g, pg, 0.8)
 		bobbers.append({"node": g, "phase": rng.randf() * TAU,
-			"amp": 0.25, "speed": rng.randf_range(0.4, 0.8), "mode": "pulse", "alpha": 0.7})
+			"amp": 0.2, "speed": rng.randf_range(0.4, 0.8), "mode": "pulse", "alpha": 0.55})
 	# batch D: shells + sand ripples on the floor
 	var shells := [["env-starfish", 3, 0.5, 0.75], ["env-scallop-shell", 3, 0.5, 0.75], ["env-rubble-pile", 3, 0.5, 0.75]]
 	for sh in shells:
