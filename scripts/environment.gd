@@ -70,8 +70,9 @@ func _build_v3_accents() -> void:
 	# the lower band so it reads as a distant reef, never a floating island.
 	var rock_tint := Color(0.45, 0.58, 0.9, 0.85)
 	var reef_tint := Color(0.35, 0.48, 0.85, 0.85)
+	var far_tint := Color(0.30, 0.42, 0.80, 0.9)  # iter5: deepest parallax plane
 	var back := [
-		["env-distant-spires", 2, 2.2, 3.0, 300.0, 950.0, rock_tint],
+		["env-distant-spires", 2, 2.2, 3.0, 300.0, 950.0, far_tint],
 		["env-cliff-wall", 1, 2.2, 3.0, 300.0, 950.0, rock_tint],
 		["env-distant-arch", 1, 2.2, 3.0, 300.0, 950.0, rock_tint],
 		["env-coral-forest", 1, 2.2, 2.8, 700.0, 950.0, reef_tint],
