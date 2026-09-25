@@ -7,6 +7,17 @@ correct MIME types for .wasm/.pck. Binds to the Tailscale interface so
 Alan's devices on the tailnet can reach it.
 
 Run in background: nohup python3 tools/serve_web.py 8903 > /tmp/gfc-web.log 2>&1 &
+
+Godot web exports require a Secure Context (HTTPS); plain HTTP over the
+tailnet fails to boot. Expose via a Cloudflare quick tunnel (no sudo needed,
+trusted cert, public URL). Note serve_web.py binds to the Tailscale IP, so
+point cloudflared at http://100.70.89.32:PORT, not localhost:
+
+  setsid nohup ~/.local/bin/cloudflared tunnel --url http://100.70.89.32:8903 > /tmp/gfc-cloudflared.log 2>&1 < /dev/null &
+  # public URL appears in /tmp/gfc-cloudflared.log (*.trycloudflare.com)
+
+(Tailscale serve would be nicer -- https://<node>.<tailnet>.ts.net -- but it
+requires enabling Serve on the tailnet via the admin console first.)
 """
 import functools
 import http.server

@@ -65,7 +65,7 @@ func _build_far() -> void:
 	for i in range(8):
 		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
 		var s := _spr(c, Vector2(randf_range(0, ZONE_W), randf_range(900, 1500)),
-			randf_range(1.5, 2.5), Color(0.45, 0.60, 0.85, 0.35))
+			randf_range(0.5, 0.9), Color(0.45, 0.60, 0.85, 0.35))
 		far.add_child(s)
 
 func _build_mid() -> void:
@@ -76,11 +76,11 @@ func _build_mid() -> void:
 	var rock: Texture2D = load("res://assets/sprites/rock.png")
 	for i in range(12):
 		mid.add_child(_spr(rock, Vector2(randf_range(0, ZONE_W), randf_range(500, 1500)),
-			randf_range(1.5, 2.6), Color(0.42, 0.58, 0.82, 0.80)))
+			randf_range(0.4, 0.7), Color(0.42, 0.58, 0.82, 0.80)))
 	for i in range(10):
 		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
 		mid.add_child(_spr(c, Vector2(randf_range(0, ZONE_W), randf_range(700, 1520)),
-			randf_range(1.5, 2.5), Color(0.65, 0.78, 0.95, 0.85)))
+			randf_range(0.5, 0.9), Color(0.65, 0.78, 0.95, 0.85)))
 
 func _build_gameplay_plane() -> void:
 	# sandy floor (two rows of tiles)
@@ -108,7 +108,7 @@ func _build_gameplay_plane() -> void:
 		sf.add_frame("sway", sw1)
 		a.sprite_frames = sf
 		a.play("sway")
-		a.scale = Vector2(2.5, 2.5)
+		a.scale = Vector2(0.75, 0.75)
 		a.position = Vector2(randf_range(20, ZONE_W - 20), randf_range(1420, 1490))
 		add_child(a)
 		weeds.append({"node": a, "phase": randf() * TAU})
@@ -116,11 +116,11 @@ func _build_gameplay_plane() -> void:
 	var rock: Texture2D = load("res://assets/sprites/rock.png")
 	for i in range(14):
 		add_child(_spr(rock, Vector2(randf_range(0, ZONE_W), randf_range(1350, 1500)),
-			randf_range(1.5, 3.0)))
+			randf_range(0.4, 0.8)))
 	for i in range(10):
 		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
 		add_child(_spr(c, Vector2(randf_range(0, ZONE_W), randf_range(1380, 1500)),
-			randf_range(1.2, 2.2)))
+			randf_range(0.5, 0.9)))
 
 func _build_foreground() -> void:
 	var pb := get_child(0) as ParallaxBackground
@@ -138,7 +138,7 @@ func _build_foreground() -> void:
 		sf.add_frame("sway", f1)
 		a.sprite_frames = sf
 		a.play("sway")
-		a.scale = Vector2(randf_range(3.0, 5.0), randf_range(3.0, 5.0))
+		a.scale = Vector2(randf_range(1.0, 1.8), randf_range(1.0, 1.8))
 		a.position = Vector2(randf_range(-100, ZONE_W + 100), randf_range(100, 1500))
 		a.modulate = Color(0.35, 0.55, 0.65, 0.85)
 		fg.add_child(a)

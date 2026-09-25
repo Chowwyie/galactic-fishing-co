@@ -28,7 +28,7 @@ func setup(p_game: Node2D, p_species: Dictionary, pos: Vector2) -> void:
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = sf
 	sprite.play("swim")
-	sprite.scale = Vector2(3, 3)
+	sprite.scale = Vector2(0.75, 0.75)
 	add_child(sprite)
 	# collision shape sized to silhouette
 	var shape := CollisionShape2D.new()
@@ -87,9 +87,9 @@ func _physics_process(delta: float) -> void:
 	global_position.x = clampf(global_position.x, 40.0, 2520.0)
 	global_position.y = clampf(global_position.y, 120.0, 1470.0)
 	if vel.x < -5.0:
-		sprite.scale.x = -3.0
+		sprite.scale.x = -0.75
 	elif vel.x > 5.0:
-		sprite.scale.x = 3.0
+		sprite.scale.x = 0.75
 
 func catch() -> void:
 	caught = true

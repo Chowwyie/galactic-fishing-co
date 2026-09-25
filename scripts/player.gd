@@ -26,17 +26,22 @@ var bubbles: CPUParticles2D
 func _ready() -> void:
 	collision_layer = 1
 	collision_mask = 0
-	# swim animation frames
+	# diver animation frames: idle + 3-frame swim (Dave the Diver style art)
 	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 4.0)
+	sf.set_animation_loop("idle", true)
+	sf.add_frame("idle", load("res://assets/sprites/diver_idle.png"))
 	sf.add_animation("swim")
-	sf.set_animation_speed("swim", 7.0)
+	sf.set_animation_speed("swim", 8.0)
 	sf.set_animation_loop("swim", true)
-	sf.add_frame("swim", load("res://assets/sprites/diver_0.png"))
-	sf.add_frame("swim", load("res://assets/sprites/diver_1.png"))
+	sf.add_frame("swim", load("res://assets/sprites/diver_swim_0.png"))
+	sf.add_frame("swim", load("res://assets/sprites/diver_swim_1.png"))
+	sf.add_frame("swim", load("res://assets/sprites/diver_swim_2.png"))
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = sf
-	sprite.play("swim")
-	sprite.scale = Vector2(3, 3)
+	sprite.play("idle")
+	sprite.scale = Vector2(0.85, 0.85)
 	add_child(sprite)
 	# bubble trail
 	bubbles = CPUParticles2D.new()
@@ -90,7 +95,7 @@ func _physics_process(delta: float) -> void:
 	if m.distance_squared_to(global_position) > 4.0:
 		aim_dir = (m - global_position).normalized()
 	sprite.rotation = aim_dir.angle()
-	sprite.scale.y = -3.0 if aim_dir.x < 0.0 else 3.0
+	sprite.scale.y = -0.85 if aim_dir.x < 0.0 else 0.85
 	# movement
 	var mv := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -127,6 +132,9 @@ func _physics_process(delta: float) -> void:
 	swim_t += delta * (10.0 if mv.length_squared() > 0.0 else 2.0)
 	sprite.position.y = sin(bob_t * 2.2) * 3.0
 	sprite.speed_scale = 1.6 if mv.length_squared() > 0.0 else 0.5
+	var want := "swim" if mv.length_squared() > 0.0 else "idle"
+	if sprite.animation != want:
+		sprite.play(want)
 	bubbles.emitting = mv.length_squared() > 0.0
 	# camera lookahead + gentle drift
 	var look := aim_dir * 55.0 + velocity * 0.12
