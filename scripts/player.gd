@@ -41,7 +41,7 @@ func _ready() -> void:
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = sf
 	sprite.play("idle")
-	sprite.scale = Vector2(0.72, 0.72)
+	sprite.scale = Vector2(0.65, 0.65)
 	add_child(sprite)
 	# bubble trail
 	bubbles = CPUParticles2D.new()
@@ -96,7 +96,7 @@ func _physics_process(delta: float) -> void:
 	if m.distance_squared_to(global_position) > 4.0:
 		aim_dir = (m - global_position).normalized()
 	sprite.rotation = aim_dir.angle()
-	sprite.scale.y = -0.72 if aim_dir.x < 0.0 else 0.72
+	sprite.scale.y = -0.65 if aim_dir.x < 0.0 else 0.65
 	# movement
 	var mv := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
