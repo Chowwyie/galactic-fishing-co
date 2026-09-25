@@ -7,19 +7,22 @@ extends Node2D
 # animated 2D accents: swaying seaweed, light dapples, god-ray shafts,
 # surface shimmer, marine snow + micro-bubbles.
 
+var game: Node2D
 var t := 0.0
 var rays: Array = []
 var bands: Array = []
 var dapples: Array = []
 var weeds: Array = []  # each: {node, phase}
 var bobbers: Array = []  # v3 accents: {node, base_y, phase, amp, speed, mode}
+var parallax: Array = []  # far backdrop: {node, base, f}
 
 const ZONE_W := 2560.0
 
-func build() -> void:
+func build(p_game: Node2D) -> void:
+	game = p_game
 	randomize()
-	_build_gameplay_accents()
-	_build_foreground_accents()
+	_build_sand_floor()
+	_build_v3_accents()
 	_build_rays()
 	_build_surface()
 	_build_particles()
@@ -33,49 +36,101 @@ func _spr(tex: Texture2D, pos: Vector2, scl: float, mod: Color = Color.WHITE) ->
 	s.modulate = mod
 	return s
 
-func _build_gameplay_accents() -> void:
-	# light dappling on the sand (over the 3D floor)
+func _build_sand_floor() -> void:
+	# Tiled sand strip along the bottom (the 3D dune floor is gone on web).
+	var sand: Texture2D = load("res://assets/sprites/sand.png")
+	var tint := Color(0.72, 0.8, 0.88)
+	for row in range(2):
+		for i in range(40):
+			var sp := _spr(sand, Vector2(32.0 + i * 64.0, 1512.0 + row * 64.0), 1.0, tint)
+			sp.flip_h = randi() % 2 == 0
+			sp.flip_v = randi() % 2 == 0
+			sp.rotation = (randi() % 4) * PI / 2.0
+			add_child(sp)
+	# light dappling on the sand
 	var dapple: Texture2D = load("res://assets/sprites/dapple.png")
 	for i in range(18):
-		var s := _spr(dapple, Vector2(randf_range(0, ZONE_W), randf_range(1490, 1570)),
+		var dp := _spr(dapple, Vector2(randf_range(0, ZONE_W), randf_range(1490, 1570)),
 			randf_range(2.0, 4.5))
-		add_child(s)
-		dapples.append({"node": s, "phase": randf() * TAU, "speed": randf_range(0.5, 1.1)})
-	# swaying seaweed anchored near the floor
-	var sw0: Texture2D = load("res://assets/sprites/seaweed_0.png")
-	var sw1: Texture2D = load("res://assets/sprites/seaweed_1.png")
-	for i in range(30):
-		var a := AnimatedSprite2D.new()
-		var sf := SpriteFrames.new()
-		sf.add_animation("sway")
-		sf.set_animation_speed("sway", 1.6)
-		sf.add_frame("sway", sw0)
-		sf.add_frame("sway", sw1)
-		a.sprite_frames = sf
-		a.play("sway")
-		a.scale = Vector2(0.75, 0.75)
-		a.position = Vector2(randf_range(20, ZONE_W - 20), randf_range(1420, 1490))
-		add_child(a)
-		weeds.append({"node": a, "phase": randf() * TAU})
+		add_child(dp)
+		dapples.append({"node": dp, "phase": randf() * TAU, "speed": randf_range(0.5, 1.1)})
 
-func _build_foreground_accents() -> void:
-	# dark background seaweed tufts, kept small and faint so they read as distant plants
-	var f0: Texture2D = load("res://assets/sprites/seaweed_fg_0.png")
-	var f1: Texture2D = load("res://assets/sprites/seaweed_fg_1.png")
-	for i in range(8):
-		var a := AnimatedSprite2D.new()
-		var sf := SpriteFrames.new()
-		sf.add_animation("sway")
-		sf.set_animation_speed("sway", 1.1)
-		sf.add_frame("sway", f0)
-		sf.add_frame("sway", f1)
-		a.sprite_frames = sf
-		a.play("sway")
-		a.scale = Vector2(randf_range(0.6, 1.0), randf_range(0.6, 1.0))
-		a.position = Vector2(randf_range(-100, ZONE_W + 100), randf_range(200, 1400))
-		a.modulate = Color(0.4, 0.6, 0.7, 0.5)
-		add_child(a)
-		weeds.append({"node": a, "phase": randf() * TAU})
+func _pf(node: Sprite2D, base: Vector2, f: float) -> void:
+	parallax.append({"node": node, "base": base, "f": f})
+
+func _build_v3_accents() -> void:
+	# v3 pixel-art carries the scene: batch E far silhouettes (parallax),
+	# batches A-D mid/near. Seeded so placement is stable across runs.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260925
+	var tint := Color(0.8, 0.88, 0.95)
+	# batch E: far backdrop silhouettes, slow parallax behind everything
+	var back := [["env-distant-spires", 2, 2.8, 3.6], ["env-coral-forest", 1, 2.6, 3.2],
+		["env-cliff-wall", 1, 2.8, 3.4], ["env-distant-arch", 1, 2.6, 3.2]]
+	for bd in back:
+		var texe: Texture2D = load("res://assets/sprites/%s.png" % bd[0])
+		for i in range(bd[1]):
+			var pe := Vector2(rng.randf_range(150, ZONE_W - 150), rng.randf_range(300.0, 950.0))
+			var se := _spr(texe, pe, rng.randf_range(bd[2], bd[3]), Color(0.45, 0.58, 0.9, 0.85))
+			add_child(se)
+			_pf(se, pe, 0.45)
+	# batch A: rocks near the floor (no 3D boulders on web — these are the rocks now)
+	var rocks := [["env-mossy-boulder", 3, 0.6, 0.9], ["env-rock-spire", 2, 0.5, 0.8],
+		["env-rock-arch", 2, 0.6, 0.9], ["env-jagged-cluster", 2, 0.5, 0.8]]
+	for r in rocks:
+		var tex: Texture2D = load("res://assets/sprites/%s.png" % r[0])
+		for i in range(r[1]):
+			var pr := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1460.0, 1540.0))
+			add_child(_spr(tex, pr, rng.randf_range(r[2], r[3]), tint))
+	# batch B: corals near the floor, gentle sway
+	var corals := [["env-brain-coral", 2], ["env-sea-fan", 2], ["env-mushroom-coral", 2], ["env-red-branching", 2]]
+	for c in corals:
+		var tex2: Texture2D = load("res://assets/sprites/%s.png" % c[0])
+		for i in range(c[1]):
+			var pc := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1450.0, 1520.0))
+			var n := _spr(tex2, pc, rng.randf_range(0.5, 0.8), tint)
+			add_child(n)
+			bobbers.append({"node": n, "base_y": pc.y, "phase": rng.randf() * TAU,
+				"amp": 0.06, "speed": rng.randf_range(0.6, 1.1), "mode": "sway"})
+	# batch C: plants kept SMALL, mostly floor-anchored near the frame edges as framing
+	var plants := ["env-eelgrass", "env-feather-fern", "env-broad-leaf"]
+	for pli in range(11):
+		var tex3: Texture2D = load("res://assets/sprites/%s.png" % plants[pli % 3])
+		var edge_x := rng.randf_range(40, 380) if pli % 2 == 0 else rng.randf_range(ZONE_W - 380, ZONE_W - 40)
+		var pp := Vector2(edge_x, rng.randf_range(1440.0, 1530.0))
+		var n2 := _spr(tex3, pp, rng.randf_range(0.45, 0.65), tint)
+		add_child(n2)
+		bobbers.append({"node": n2, "base_y": pp.y, "phase": rng.randf() * TAU,
+			"amp": 0.08, "speed": rng.randf_range(0.7, 1.2), "mode": "sway"})
+	# a few small drifting kelp bits near the top edges
+	for i in range(3):
+		var tex4: Texture2D = load("res://assets/sprites/%s.png" % plants[i % 3])
+		var pt := Vector2(rng.randf_range(60, 340) if i % 2 == 0 else rng.randf_range(ZONE_W - 340, ZONE_W - 60),
+			rng.randf_range(150.0, 350.0))
+		var nt := _spr(tex4, pt, rng.randf_range(0.4, 0.55), Color(0.8, 0.88, 0.95, 0.7))
+		add_child(nt)
+		bobbers.append({"node": nt, "base_y": pt.y, "phase": rng.randf() * TAU,
+			"amp": 12.0, "speed": rng.randf_range(0.4, 0.7), "mode": "bob"})
+	# drifting glow plankton mid-water
+	var gp: Texture2D = load("res://assets/sprites/env-glow-plankton.png")
+	for i in range(6):
+		var pg := Vector2(rng.randf_range(60, ZONE_W - 60), rng.randf_range(300.0, 1200.0))
+		var g := _spr(gp, pg, rng.randf_range(0.4, 0.6), Color(0.7, 1.0, 0.9, 0.7))
+		add_child(g)
+		_pf(g, pg, 0.8)
+		bobbers.append({"node": g, "phase": rng.randf() * TAU,
+			"amp": 0.25, "speed": rng.randf_range(0.4, 0.8), "mode": "pulse", "alpha": 0.7})
+	# batch D: shells + sand ripples on the floor
+	var shells := [["env-starfish", 3, 0.5, 0.75], ["env-scallop-shell", 3, 0.5, 0.75], ["env-rubble-pile", 3, 0.5, 0.75]]
+	for sh in shells:
+		var tex5: Texture2D = load("res://assets/sprites/%s.png" % sh[0])
+		for i in range(sh[1]):
+			var ps := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1500.0, 1560.0))
+			add_child(_spr(tex5, ps, rng.randf_range(sh[2], sh[3]), tint))
+	var rip: Texture2D = load("res://assets/sprites/env-sand-ripples.png")
+	for i in range(4):
+		var pr2 := Vector2(rng.randf_range(100, ZONE_W - 100), rng.randf_range(1520.0, 1570.0))
+		add_child(_spr(rip, pr2, rng.randf_range(1.5, 2.5), Color(1, 1, 1, 0.35)))
 
 func _build_rays() -> void:
 	for i in range(7):
@@ -154,73 +209,20 @@ func _process(delta: float) -> void:
 	for w in weeds:
 		var n3: AnimatedSprite2D = w["node"]
 		n3.rotation = sin(t * 0.9 + w["phase"]) * 0.07
+	if game != null and game.player != null and game.player.cam != null:
+		var cc: Vector2 = game.player.cam.get_screen_center_position()
+		for pl in parallax:
+			var pn: Sprite2D = pl["node"]
+			var pb: Vector2 = pl["base"]
+			var pf: float = pl["f"]
+			pn.position = pb * pf + cc * (1.0 - pf)
+	for b in bobbers:
+		var bn2: Sprite2D = b["node"]
+		if b["mode"] == "pulse":
+			bn2.modulate.a = b["alpha"] + sin(t * b["speed"] + b["phase"]) * b["amp"]
 	for b in bobbers:
 		var bn: Sprite2D = b["node"]
 		if b["mode"] == "bob":
 			bn.position.y = b["base_y"] + sin(t * b["speed"] + b["phase"]) * b["amp"]
 		else:
 			bn.rotation = sin(t * b["speed"] + b["phase"]) * b["amp"]
-
-func _build_v3_accents() -> void:
-	# v3 pixel-art accents (batches A-D near the sandy floor / mid-water,
-	# batch E as far backdrop silhouettes) over the real 3D boulder base.
-	# Seeded so placement is stable across runs.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260925
-	var tint := Color(0.8, 0.88, 0.95)
-	# batch A: rocks near the floor (complement the 3D boulders, don't duplicate)
-	var rocks := [["env-mossy-boulder", 3, 0.7, 1.0], ["env-rock-spire", 2, 0.6, 0.9],
-		["env-rock-arch", 2, 0.7, 1.0], ["env-jagged-cluster", 2, 0.6, 0.9]]
-	for r in rocks:
-		var tex: Texture2D = load("res://assets/sprites/%s.png" % r[0])
-		for i in range(r[1]):
-			var sc := rng.randf_range(r[2], r[3])
-			var pos := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1560.0))
-			add_child(_spr(tex, pos, sc, tint))
-	# batch B: corals, gentle sway
-	var corals := [["env-brain-coral", 2], ["env-sea-fan", 2], ["env-mushroom-coral", 2], ["env-red-branching", 2]]
-	for c in corals:
-		var tex2: Texture2D = load("res://assets/sprites/%s.png" % c[0])
-		for i in range(c[1]):
-			var pos2 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1520.0))
-			var n := _spr(tex2, pos2, rng.randf_range(0.6, 0.9), tint)
-			add_child(n)
-			bobbers.append({"node": n, "base_y": pos2.y, "phase": rng.randf() * TAU,
-				"amp": 0.06, "speed": rng.randf_range(0.6, 1.1), "mode": "sway"})
-	# batch C: plants near the floor + drifting glow plankton mid-water
-	var plants := [["env-eelgrass", 3], ["env-feather-fern", 3], ["env-broad-leaf", 2]]
-	for pl in plants:
-		var tex3: Texture2D = load("res://assets/sprites/%s.png" % pl[0])
-		for i in range(pl[1]):
-			var pos3 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1440.0, 1520.0))
-			var n2 := _spr(tex3, pos3, rng.randf_range(0.7, 1.0), tint)
-			add_child(n2)
-			bobbers.append({"node": n2, "base_y": pos3.y, "phase": rng.randf() * TAU,
-				"amp": 0.08, "speed": rng.randf_range(0.7, 1.2), "mode": "sway"})
-	var gp: Texture2D = load("res://assets/sprites/env-glow-plankton.png")
-	for i in range(6):
-		var pos4 := Vector2(rng.randf_range(60, ZONE_W - 60), rng.randf_range(300.0, 1200.0))
-		var g := _spr(gp, pos4, rng.randf_range(0.5, 0.8), Color(0.7, 1.0, 0.9, 0.8))
-		add_child(g)
-		bobbers.append({"node": g, "base_y": pos4.y, "phase": rng.randf() * TAU,
-			"amp": 14.0, "speed": rng.randf_range(0.4, 0.8), "mode": "bob"})
-	# batch D: shells + sand ripples on the floor
-	var shells := [["env-starfish", 3, 0.5, 0.8], ["env-scallop-shell", 3, 0.5, 0.8], ["env-rubble-pile", 3, 0.5, 0.8]]
-	for sh in shells:
-		var tex4: Texture2D = load("res://assets/sprites/%s.png" % sh[0])
-		for i in range(sh[1]):
-			var sc2 := rng.randf_range(sh[2], sh[3])
-			var pos5 := Vector2(rng.randf_range(40, ZONE_W - 40), rng.randf_range(1500.0, 1560.0))
-			add_child(_spr(tex4, pos5, sc2, tint))
-	var rip: Texture2D = load("res://assets/sprites/env-sand-ripples.png")
-	for i in range(3):
-		var pos6 := Vector2(rng.randf_range(100, ZONE_W - 100), rng.randf_range(1520.0, 1570.0))
-		add_child(_spr(rip, pos6, rng.randf_range(1.5, 2.5), Color(1, 1, 1, 0.35)))
-	# batch E: far backdrop silhouettes (dark blue art; tree order draws them behind fish/player)
-	var back := [["env-distant-spires", 2, 3.0, 3.6], ["env-coral-forest", 1, 2.8, 3.2],
-		["env-cliff-wall", 1, 3.0, 3.4], ["env-distant-arch", 1, 2.8, 3.2]]
-	for bd in back:
-		var tex5: Texture2D = load("res://assets/sprites/%s.png" % bd[0])
-		for i in range(bd[1]):
-			var pos7 := Vector2(rng.randf_range(100, ZONE_W - 100), rng.randf_range(350.0, 950.0))
-			add_child(_spr(tex5, pos7, rng.randf_range(bd[2], bd[3]), Color(0.5, 0.62, 0.92, 0.9)))

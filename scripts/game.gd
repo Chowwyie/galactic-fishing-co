@@ -22,14 +22,18 @@ var title_layer: CanvasLayer
 var shake := 0.0
 var flash: ColorRect
 
+const USE_3D_BG := false  # 2026-09-25: 3D SubViewport renders on desktop only,
+# not in the web export (only the Environment gradient shows). v3 2D art carries the scene.
+
 func _ready() -> void:
-	_build_bg3d()
+	if USE_3D_BG:
+		_build_bg3d()
 	world = Node2D.new()
 	world.name = "World"
 	add_child(world)
 	env = EnvBuilder.new()
 	world.add_child(env)
-	env.build()
+	env.build(self)
 	# player
 	player = Player.new()
 	player.game = self
@@ -53,6 +57,7 @@ func _ready() -> void:
 	ship_ui.build(self)
 	_build_title()
 	hud.refresh()
+	_web_qa_hook()
 
 func _build_title() -> void:
 	title_layer = CanvasLayer.new()
@@ -227,3 +232,12 @@ func _build_bg3d() -> void:
 	svc.add_child(sv)
 	bg3d = BG3DWorld.new()
 	sv.add_child(bg3d)
+func _web_qa_hook() -> void:
+	# Screenshot-QA affordance for the web export only: loading
+	# index.html#y=<depth> skips the title and drops the player at that depth.
+	if not OS.has_feature("web"):
+		return
+	var hash: String = str(JavaScriptBridge.eval("window.location.hash", true))
+	if hash.begins_with("#y="):
+		_start_game()
+		player.position = Vector2(1280, clampf(hash.trim_prefix("#y=").to_float(), 0.0, 1560.0))
