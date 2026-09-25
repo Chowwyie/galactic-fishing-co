@@ -243,8 +243,3 @@ func _web_qa_hook() -> void:
 	if hash.begins_with("#y="):
 		_start_game()
 		player.position = Vector2(1280, clampf(hash.trim_prefix("#y=").to_float(), 0.0, 1560.0))
-	if hash == "#catch=all":  # TEMP-QA-ITER12: removed before final export
-		_start_game()
-		for sp in FishData.SPECIES:
-			caught_species[sp["id"]] = 1
-		catalog.show_capture(FishData.SPECIES[0])
