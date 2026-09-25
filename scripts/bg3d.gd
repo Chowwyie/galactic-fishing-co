@@ -56,6 +56,11 @@ func _ready() -> void:
 func _mat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
+	# Unshaded: far silhouettes must never catch directional light on their
+	# facets (that flat-shaded CG look is what reads as "low-poly geometry"
+	# next to the 2D pixel art). Fog still applies, so they melt into the
+	# water column with distance.
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.roughness = 0.95
 	m.metallic = 0.0
 	return m
@@ -132,8 +137,8 @@ func _build_environment() -> void:
 	env.fog_mode = Environment.FOG_MODE_DEPTH
 	env.fog_light_color = COL_MID * 0.9
 	env.fog_light_energy = 1.0
-	env.fog_depth_begin = 800.0
-	env.fog_depth_end = 1900.0
+	env.fog_depth_begin = 700.0
+	env.fog_depth_end = 1700.0
 	env.fog_depth_curve = 1.0
 	we.environment = env
 	add_child(we)
@@ -205,8 +210,13 @@ func _build_ranges() -> void:
 	r.seed = 20260925
 	# Far tier: the faintest ridgeline.
 	_range(r, -1000.0, mat_sil_far, 14, 300.0, 900.0, 0.0)
+	# Farthest tier: wide low shapes, almost fully fogged — the deepest plane.
+	_range(r, -1150.0, mat_sil_far, 8, 500.0, 620.0, 300.0)
 	# Mid tier: slightly nearer, offset phase.
 	_range(r, -750.0, mat_sil_mid, 12, 260.0, 700.0, 140.0)
+	# Distant arches: two tilted pillars + a lintel, mid-tier depth so they
+	# read as designed structures rather than random boulders.
+	_build_arches(r)
 	# Spires: tall thin accents for vertical rhythm.
 	for i in 8:
 		var px := r.randf_range(-400.0, 3000.0)
@@ -234,6 +244,33 @@ func _range(r: RandomNumberGenerator, z: float, mat: Material, n: int, w_min: fl
 			mat,
 			r.randi() % 4)
 		x += step * r.randf_range(0.85, 1.1)
+
+# A distant rock arch: two outward-tilted pillars carrying a lintel.
+# Placed at the mid tier so it reads through the fog as a designed shape.
+func _build_arches(r: RandomNumberGenerator) -> void:
+	for i in 3:
+		var cx := r.randf_range(-200.0, 2800.0)
+		var top_y := r.randf_range(WORLD_BOTTOM + 700.0, WORLD_TOP - 500.0)
+		var half_w := r.randf_range(150.0, 230.0)
+		var pillar_h := r.randf_range(400.0, 580.0)
+		_boulder(
+			Vector3(cx - half_w, top_y - pillar_h * 0.5, -750.0),
+			Vector3(110.0, pillar_h, 200.0),
+			Vector3(0.0, 0.0, 0.10),
+			mat_sil_mid,
+			r.randi() % 4)
+		_boulder(
+			Vector3(cx + half_w, top_y - pillar_h * 0.5, -750.0),
+			Vector3(110.0, pillar_h, 200.0),
+			Vector3(0.0, 0.0, -0.10),
+			mat_sil_mid,
+			r.randi() % 4)
+		_boulder(
+			Vector3(cx, top_y, -750.0),
+			Vector3(half_w * 2.0 + 130.0, 110.0, 200.0),
+			Vector3.ZERO,
+			mat_sil_mid,
+			r.randi() % 4)
 
 # GDScript mirror of the water ramp, for syncing fog/ambient to camera depth.
 func _water_color(depth2d: float) -> Color:
