@@ -131,10 +131,15 @@ func _refresh_catch_strip(ids: Array) -> void:
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		catch_strip.add_child(pic)
 
-func _add_button(text: String, cb: Callable) -> void:
+func _add_button(text: String, cb: Callable, icon: Texture2D = null, disabled: bool = false) -> void:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(300, 36)
+	if icon != null:
+		b.icon = icon
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.expand_icon = false
+	b.disabled = disabled
 	b.pressed.connect(cb)
 	btn_box.add_child(b)
 
@@ -180,11 +185,17 @@ func _farewell() -> void:
 	_refresh_catch_strip([])
 	_add_button("Dive!", close_dialog)
 
+const SHOP_ICONS := {
+	"oxy": "res://assets/sprites/icon_oxy.png",
+	"cargo": "res://assets/sprites/icon_cargo.png",
+	"harp": "res://assets/sprites/icon_harp.png",
+}
+
 func open_shop() -> void:
 	_clear_buttons()
 	_refresh_catch_strip([])
 	var p = game.player
-	text_label.text = "Contractor improvement packages! One tier each. The Company invests in its assets. You are the asset."
+	text_label.text = "Contractor improvement packages! One tier each. The Company invests in its assets. You are the asset.\nYour balance: %d cr." % p.credits
 	var items := [
 		{"key": "oxy", "name": "O2 Tank XL — 90s oxygen (600 cr)", "cost": 600, "owned": p.has_oxy_tank},
 		{"key": "cargo", "name": "Cargo Hold+ — 14 capacity (500 cr)", "cost": 500, "owned": p.has_cargo_hold},
@@ -192,12 +203,14 @@ func open_shop() -> void:
 	]
 	for it in items:
 		var label_text: String = it["name"]
-		if it["owned"]:
+		var is_owned: bool = it["owned"]
+		if is_owned:
 			label_text = "[OWNED] " + it["name"]
 		elif p.credits < it["cost"]:
 			label_text += "  (need %d more)" % (it["cost"] - p.credits)
 		var key: String = it["key"]
-		_add_button(label_text, func(): _buy(key))
+		var icon: Texture2D = load(SHOP_ICONS[key])
+		_add_button(label_text, func(): _buy(key), icon, is_owned)
 	_add_button("Back", open_greeting)
 
 func _buy(key: String) -> void:
