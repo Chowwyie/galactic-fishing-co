@@ -62,17 +62,26 @@ func build(p_game: Node2D) -> void:
 	add_child(cargo_label)
 	# bottom-center: interact prompt + warnings
 	prompt_label = Label.new()
-	prompt_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	prompt_label.position = Vector2(-200, -90)
-	prompt_label.custom_minimum_size = Vector2(400, 30)
+	# full-width bottom anchor: text stays centered for any label width (no magic offsets)
+	prompt_label.anchor_left = 0.0
+	prompt_label.anchor_top = 1.0
+	prompt_label.anchor_right = 1.0
+	prompt_label.anchor_bottom = 1.0
+	prompt_label.offset_top = -90.0
+	prompt_label.offset_bottom = -60.0
+	prompt_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt_label.add_theme_font_size_override("font_size", 20)
 	prompt_label.visible = false
 	add_child(prompt_label)
 	warn_label = Label.new()
-	warn_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	warn_label.position = Vector2(-300, -130)
-	warn_label.custom_minimum_size = Vector2(600, 30)
+	warn_label.anchor_left = 0.0
+	warn_label.anchor_top = 1.0
+	warn_label.anchor_right = 1.0
+	warn_label.anchor_bottom = 1.0
+	warn_label.offset_top = -130.0
+	warn_label.offset_bottom = -100.0
+	warn_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	warn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	warn_label.add_theme_font_size_override("font_size", 22)
 	warn_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))

@@ -70,7 +70,17 @@ func _build_title() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	title_layer.add_child(bg)
 	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_CENTER)
+	# true centering: PRESET_CENTER only pins top-left to center
+	v.anchor_left = 0.5
+	v.anchor_top = 0.5
+	v.anchor_right = 0.5
+	v.anchor_bottom = 0.5
+	v.offset_left = -350.0
+	v.offset_top = -190.0
+	v.offset_right = 350.0
+	v.offset_bottom = 190.0
+	v.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	v.grow_vertical = Control.GROW_DIRECTION_BOTH
 	v.custom_minimum_size = Vector2(700, 0)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 12)
