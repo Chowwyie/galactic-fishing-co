@@ -22,8 +22,10 @@ var title_layer: CanvasLayer
 var shake := 0.0
 var flash: ColorRect
 
-const USE_3D_BG := false  # 2026-09-25: 3D SubViewport renders on desktop only,
-# not in the web export (only the Environment gradient shows). v3 2D art carries the scene.
+const USE_3D_BG := true  # 2026-09-25 iter7: real 3D background renders in the web
+# export (SubViewport + own_world_3d works on GL Compatibility web). BG3DWorld now
+# draws only the far environment: world-locked water gradient + dark 3D rock
+# silhouettes at 0.7x parallax with depth-synced fog. 2D owns mid/foreground.
 
 func _ready() -> void:
 	if USE_3D_BG:
