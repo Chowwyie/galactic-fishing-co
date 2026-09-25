@@ -1,39 +1,27 @@
 class_name EnvBuilder
 extends Node2D
 
-# 2.5D environment: 4 parallax layers + gameplay plane + animated light/water FX.
-# Layer order (back -> front):
-#   far (0.10): water gradient + distant silhouettes
-#   mid (0.45): rock / coral formations
-#   gameplay (1.0): sand floor, seaweed, rocks, corals, rays anchored lightly
-#   foreground (1.55): dark seaweed framing
+# 2.5D environment accents on the gameplay plane. The volumetric background
+# (rocks, corals, sand, water column) is real 3D geometry in BG3DWorld,
+# rendered in a SubViewport behind this canvas. This script keeps the
+# animated 2D accents: swaying seaweed, light dapples, god-ray shafts,
+# surface shimmer, marine snow + micro-bubbles.
 
 var t := 0.0
 var rays: Array = []
 var bands: Array = []
 var dapples: Array = []
-var weeds: Array = []  # each: {node, phase, base_rot}
+var weeds: Array = []  # each: {node, phase}
 
 const ZONE_W := 2560.0
 
 func build() -> void:
 	randomize()
-	_build_far()
-	_build_mid()
-	_build_gameplay_plane()
-	_build_foreground()
+	_build_gameplay_accents()
+	_build_foreground_accents()
 	_build_rays()
 	_build_surface()
 	_build_particles()
-
-func _layer(parent: Node, motion: Vector2) -> ParallaxLayer:
-	var pb := parent
-	if parent is ParallaxBackground:
-		var l := ParallaxLayer.new()
-		l.motion_scale = motion
-		parent.add_child(l)
-		return l
-	return null
 
 func _spr(tex: Texture2D, pos: Vector2, scl: float, mod: Color = Color.WHITE) -> Sprite2D:
 	var s := Sprite2D.new()
@@ -43,53 +31,8 @@ func _spr(tex: Texture2D, pos: Vector2, scl: float, mod: Color = Color.WHITE) ->
 	s.modulate = mod
 	return s
 
-func _build_far() -> void:
-	var pb := ParallaxBackground.new()
-	add_child(pb)
-	var far := ParallaxLayer.new()
-	far.motion_scale = Vector2(0.10, 0.10)
-	pb.add_child(far)
-	# water gradient backdrop
-	var grad := _spr(load("res://assets/sprites/water_gradient.png"), Vector2(1280, 720), 1.0)
-	grad.scale = Vector2(400, 4.2)
-	far.add_child(grad)
-	# distant silhouettes
-	var rock_far: Texture2D = load("res://assets/sprites/rock_far.png")
-	for i in range(16):
-		var s := _spr(rock_far,
-			Vector2(randf_range(0, ZONE_W), randf_range(150, 1450)),
-			randf_range(1.5, 3.0),
-			Color(0.40, 0.56, 0.80, 0.45))
-		far.add_child(s)
-	# faint far corals
-	for i in range(8):
-		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
-		var s := _spr(c, Vector2(randf_range(0, ZONE_W), randf_range(900, 1500)),
-			randf_range(0.5, 0.9), Color(0.45, 0.60, 0.85, 0.35))
-		far.add_child(s)
-
-func _build_mid() -> void:
-	var pb := get_child(0) as ParallaxBackground
-	var mid := ParallaxLayer.new()
-	mid.motion_scale = Vector2(0.45, 0.45)
-	pb.add_child(mid)
-	var rock: Texture2D = load("res://assets/sprites/rock.png")
-	for i in range(12):
-		mid.add_child(_spr(rock, Vector2(randf_range(0, ZONE_W), randf_range(500, 1500)),
-			randf_range(0.4, 0.7), Color(0.42, 0.58, 0.82, 0.80)))
-	for i in range(10):
-		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
-		mid.add_child(_spr(c, Vector2(randf_range(0, ZONE_W), randf_range(700, 1520)),
-			randf_range(0.5, 0.9), Color(0.65, 0.78, 0.95, 0.85)))
-
-func _build_gameplay_plane() -> void:
-	# sandy floor (two rows of tiles)
-	var sand: Texture2D = load("res://assets/sprites/sand.png")
-	for x in range(0, int(ZONE_W), 64):
-		for y in [1496, 1560]:
-			var s := _spr(sand, Vector2(x + 32, y), 1.0)
-			add_child(s)
-	# light dappling on the sand
+func _build_gameplay_accents() -> void:
+	# light dappling on the sand (over the 3D floor)
 	var dapple: Texture2D = load("res://assets/sprites/dapple.png")
 	for i in range(18):
 		var s := _spr(dapple, Vector2(randf_range(0, ZONE_W), randf_range(1490, 1570)),
@@ -112,21 +55,9 @@ func _build_gameplay_plane() -> void:
 		a.position = Vector2(randf_range(20, ZONE_W - 20), randf_range(1420, 1490))
 		add_child(a)
 		weeds.append({"node": a, "phase": randf() * TAU})
-	# rocks + corals on the gameplay plane
-	var rock: Texture2D = load("res://assets/sprites/rock.png")
-	for i in range(14):
-		add_child(_spr(rock, Vector2(randf_range(0, ZONE_W), randf_range(1350, 1500)),
-			randf_range(0.4, 0.8)))
-	for i in range(10):
-		var c: Texture2D = load("res://assets/sprites/coral_%d.png" % (i % 3))
-		add_child(_spr(c, Vector2(randf_range(0, ZONE_W), randf_range(1380, 1500)),
-			randf_range(0.5, 0.9)))
 
-func _build_foreground() -> void:
-	var pb := get_child(0) as ParallaxBackground
-	var fg := ParallaxLayer.new()
-	fg.motion_scale = Vector2(1.55, 1.55)
-	pb.add_child(fg)
+func _build_foreground_accents() -> void:
+	# dark seaweed framing the view (no parallax — the 3D world carries depth now)
 	var f0: Texture2D = load("res://assets/sprites/seaweed_fg_0.png")
 	var f1: Texture2D = load("res://assets/sprites/seaweed_fg_1.png")
 	for i in range(12):
@@ -141,14 +72,10 @@ func _build_foreground() -> void:
 		a.scale = Vector2(randf_range(1.0, 1.8), randf_range(1.0, 1.8))
 		a.position = Vector2(randf_range(-100, ZONE_W + 100), randf_range(100, 1500))
 		a.modulate = Color(0.35, 0.55, 0.65, 0.85)
-		fg.add_child(a)
+		add_child(a)
 		weeds.append({"node": a, "phase": randf() * TAU})
 
 func _build_rays() -> void:
-	var pb := get_child(0) as ParallaxBackground
-	var rl := ParallaxLayer.new()
-	rl.motion_scale = Vector2(0.25, 0.25)
-	pb.add_child(rl)
 	for i in range(7):
 		var poly := Polygon2D.new()
 		var x := 120.0 + i * 380.0 + randf_range(-60, 60)
@@ -160,7 +87,7 @@ func _build_rays() -> void:
 			Vector2(x + slant + bot_w * 0.5, 1050), Vector2(x + slant - bot_w * 0.5, 1050),
 		])
 		poly.color = Color(0.82, 0.96, 1.0, 0.10)
-		rl.add_child(poly)
+		add_child(poly)
 		rays.append({"node": poly, "phase": randf() * TAU, "speed": randf_range(0.4, 0.9)})
 
 func _build_surface() -> void:

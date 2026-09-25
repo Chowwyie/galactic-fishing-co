@@ -9,6 +9,7 @@ var hud: Hud
 var catalog: CatalogUI
 var ship_ui: ShipUI
 var env: EnvBuilder
+var bg3d: BG3DWorld
 var harpoons: Array = []
 var active_harpoons := 0
 var started := false
@@ -22,6 +23,7 @@ var shake := 0.0
 var flash: ColorRect
 
 func _ready() -> void:
+	_build_bg3d()
 	world = Node2D.new()
 	world.name = "World"
 	add_child(world)
@@ -204,3 +206,24 @@ func _process(_delta: float) -> void:
 		hud.show_prompt("[E] Talk to S.H.I.P.")
 	else:
 		hud.hide_prompt()
+
+func _build_bg3d() -> void:
+	# Real 3D background behind the 2D canvas: a SubViewport with its own
+	# 3D world, drawn on a canvas layer below everything 2D.
+	var bg_layer := CanvasLayer.new()
+	bg_layer.name = "BG3D"
+	bg_layer.layer = -100
+	add_child(bg_layer)
+	var svc := SubViewportContainer.new()
+	svc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	svc.stretch = false
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg_layer.add_child(svc)
+	var sv := SubViewport.new()
+	sv.own_world_3d = true
+	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	sv.handle_input_locally = false
+	sv.gui_disable_input = true
+	svc.add_child(sv)
+	bg3d = BG3DWorld.new()
+	sv.add_child(bg3d)
