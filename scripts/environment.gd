@@ -10,6 +10,7 @@ extends Node2D
 var game: Node2D
 var t := 0.0
 var rays: Array = []
+var bio: Array = []  # depth-gated bioluminescent accents
 var bands: Array = []
 var dapples: Array = []
 var weeds: Array = []  # each: {node, phase}
@@ -24,6 +25,7 @@ func build(p_game: Node2D) -> void:
 	_build_sand_floor()
 	_build_v3_accents()
 	_build_rays()
+	_build_biolum()
 	_build_surface()
 	_build_particles()
 
@@ -163,6 +165,35 @@ func _build_rays() -> void:
 		add_child(s)
 		rays.append({"node": s, "alpha": base_a, "phase": randf() * TAU, "speed": randf_range(0.35, 0.8)})
 
+func _build_biolum() -> void:
+	# Depth-gated bioluminescent accents: small glowing anemones/polyps on the
+	# floor and low rock. Invisible near the surface, glowing in the abyss;
+	# intensity ramps with absolute camera depth (see _process). Sparse and
+	# small by design -- accent points, never clutter.
+	var tex: Texture2D = load("res://assets/sprites/bio_glow.png")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260925
+	var spots: Array = []
+	for i in range(8):
+		spots.append(Vector2(rng.randf_range(80.0, ZONE_W - 80.0), rng.randf_range(1485.0, 1555.0)))
+	for i in range(3):
+		spots.append(Vector2(rng.randf_range(80.0, ZONE_W - 80.0), rng.randf_range(1360.0, 1460.0)))
+	for sp in spots:
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		s.material = mat
+		var sc := rng.randf_range(0.35, 0.7)
+		s.scale = Vector2(sc, sc)
+		s.position = sp
+		var base_a := rng.randf_range(0.5, 0.8)
+		s.modulate = Color(0.55, 1.0, 0.9, 0.0)
+		add_child(s)
+		bio.append({"node": s, "alpha": base_a, "phase": rng.randf() * TAU,
+			"speed": rng.randf_range(0.6, 1.4)})
+
 func _build_surface() -> void:
 	# ripple shimmer bands seen from below, ping-ponging gently
 	var band: Texture2D = load("res://assets/sprites/surface_band.png")
@@ -222,6 +253,11 @@ func _process(delta: float) -> void:
 	for r in rays:
 		var rn: Sprite2D = r["node"]
 		rn.modulate.a = r["alpha"] * (0.7 + 0.3 * sin(t * r["speed"] + r["phase"])) * ray_f
+	# Bioluminescence: invisible near the surface, full glow in the abyss.
+	var bio_f := smoothstep(900.0, 1300.0, cam_y)
+	for bi in bio:
+		var bnode: Sprite2D = bi["node"]
+		bnode.modulate.a = bi["alpha"] * (0.75 + 0.25 * sin(t * bi["speed"] + bi["phase"])) * bio_f
 	for b in bands:
 		var n: Sprite2D = b["node"]
 		n.position.x = 640.0 + sin(t * b["speed"] + b["phase"]) * b["amp"]
