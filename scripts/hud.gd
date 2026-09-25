@@ -30,6 +30,11 @@ func build(p_game: Node2D) -> void:
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vignette.modulate.a = 0.85
 	add_child(vignette)
+	# subtle backing scrims: HUD text stays readable over bright surface water and the dark abyss
+	_add_scrim(Control.PRESET_TOP_LEFT, Vector2(8, 6), Vector2(238, 54))
+	_add_scrim(Control.PRESET_TOP_RIGHT, Vector2(-246, 6), Vector2(238, 58))
+	_add_scrim(Control.PRESET_BOTTOM_LEFT, Vector2(8, -54), Vector2(196, 42))
+	_add_scrim(Control.PRESET_BOTTOM_RIGHT, Vector2(-370, -52), Vector2(362, 44))
 	# top-left: oxygen
 	var oxy_box := VBoxContainer.new()
 	oxy_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -72,6 +77,8 @@ func build(p_game: Node2D) -> void:
 	prompt_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt_label.add_theme_font_size_override("font_size", 20)
+	prompt_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
+	prompt_label.add_theme_constant_override("outline_size", 5)
 	prompt_label.visible = false
 	add_child(prompt_label)
 	warn_label = Label.new()
@@ -84,6 +91,8 @@ func build(p_game: Node2D) -> void:
 	warn_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	warn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	warn_label.add_theme_font_size_override("font_size", 22)
+	warn_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
+	warn_label.add_theme_constant_override("outline_size", 5)
 	warn_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
 	warn_label.visible = false
 	add_child(warn_label)
@@ -97,6 +106,18 @@ func build(p_game: Node2D) -> void:
 	hint_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 	hint_label.text = "WASD move · click harpoon · E ship · TAB catalog"
 	add_child(hint_label)
+
+func _add_scrim(preset: int, pos: Vector2, size: Vector2) -> void:
+	var p := Panel.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.015, 0.05, 0.10, 0.38)
+	s.set_corner_radius_all(7)
+	p.add_theme_stylebox_override("panel", s)
+	p.set_anchors_preset(preset)
+	p.position = pos
+	p.size = size
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(p)
 
 func _mk_label(parent: Control, size: int, align: HorizontalAlignment) -> Label:
 	var l := Label.new()
