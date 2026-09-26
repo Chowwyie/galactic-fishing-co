@@ -1,25 +1,26 @@
 extends Control
-## Water spike v2: Beer-Lambert water shader + two-layer marine snow
-## (many tiny far motes, few large near motes). No 3D set yet.
+## Water spike v2.1: Beer-Lambert water shader + two-layer marine snow.
+## Snow emits from a strip above the screen and drifts down past the
+## viewport, so motes never pop in/out mid-screen (no blinking).
 
 var snow_far: CPUParticles2D
 var snow_near: CPUParticles2D
+var _far_vmin := 6.0
+var _near_vmin := 4.0
 
 
 func _ready() -> void:
 	snow_far = $Snow
-	_setup_layer(snow_far, 130, 0.5, 1.0, 0.40, 6.0, 18.0)
+	_setup_layer(snow_far, 130, 0.5, 1.0, 0.40, _far_vmin, 18.0)
 	snow_near = CPUParticles2D.new()
 	add_child(snow_near)
-	_setup_layer(snow_near, 28, 1.6, 2.8, 0.60, 4.0, 12.0)
+	_setup_layer(snow_near, 28, 1.6, 2.8, 0.60, _near_vmin, 12.0)
 	get_tree().root.size_changed.connect(_fit_snow)
 	_fit_snow()
 
 
 func _setup_layer(p: CPUParticles2D, amount: int, s_min: float, s_max: float, alpha: float, v_min: float, v_max: float) -> void:
 	p.amount = amount
-	p.lifetime = 12.0
-	p.preprocess = 12.0
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	p.direction = Vector2(0, 1)
 	p.spread = 12.0
@@ -34,9 +35,18 @@ func _setup_layer(p: CPUParticles2D, amount: int, s_min: float, s_max: float, al
 
 func _fit_snow() -> void:
 	var vs := get_viewport_rect().size
-	for p in [snow_far, snow_near]:
-		p.position = vs * 0.5
-		p.emission_rect_extents = vs * 0.5
+	_place_layer(snow_far, vs, _far_vmin)
+	_place_layer(snow_near, vs, _near_vmin)
+
+
+func _place_layer(p: CPUParticles2D, vs: Vector2, v_min: float) -> void:
+	# Lifetime long enough for the slowest mote to fall past the screen.
+	var life := (vs.y + 240.0) / v_min
+	p.lifetime = life
+	p.preprocess = life
+	p.position = Vector2(vs.x * 0.5, -30.0)
+	p.emission_rect_extents = Vector2(vs.x * 0.5, 10.0)
+	p.restart()
 
 
 func _mote_texture() -> Texture2D:
