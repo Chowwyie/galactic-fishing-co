@@ -34,6 +34,7 @@ var backdrop: MeshInstance3D
 
 var box_mesh: BoxMesh
 var boulder_meshes: Array[ArrayMesh] = []
+var stratum_meshes: Array[ArrayMesh] = []
 
 var mat_sil_far: StandardMaterial3D
 var mat_sil_mid: StandardMaterial3D
@@ -45,6 +46,7 @@ func _ready() -> void:
 	box_mesh.size = Vector3.ONE
 	_build_materials()
 	_build_boulders()
+	_build_strata()
 	_build_environment()
 	_build_backdrop()
 	_build_light()
@@ -75,9 +77,15 @@ func _build_materials() -> void:
 # flat face normals. Reads as rock, not glass cubes.
 func _build_boulders() -> void:
 	for i in 4:
-		boulder_meshes.append(_make_boulder(5000 + i * 131))
+		boulder_meshes.append(_make_jittered_box(5000 + i * 131, 0.28))
 
-func _make_boulder(salt: int) -> ArrayMesh:
+# Clean-cut strata for cliff mesas: same faceted-box construction as the
+# boulders but with tiny jitter, so faces stay flat and tops stay level.
+func _build_strata() -> void:
+	for i in 4:
+		stratum_meshes.append(_make_jittered_box(9000 + i * 131, 0.05))
+
+func _make_jittered_box(salt: int, jitter: float) -> ArrayMesh:
 	var r := RandomNumberGenerator.new()
 	r.seed = salt
 	var bm := BoxMesh.new()
@@ -94,7 +102,7 @@ func _make_boulder(salt: int) -> ArrayMesh:
 		var v := mdt.get_vertex(i)
 		var key := "%0.2f|%0.2f|%0.2f" % [v.x, v.y, v.z]
 		if not seen.has(key):
-			seen[key] = v + Vector3(r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28))
+			seen[key] = v + Vector3(r.randf_range(-jitter, jitter), r.randf_range(-jitter, jitter), r.randf_range(-jitter, jitter))
 		mdt.set_vertex(i, seen[key])
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -124,6 +132,37 @@ func _boulder(pos: Vector3, scl: Vector3, rot: Vector3, mat: Material, variant: 
 	mi.rotation = rot
 	mi.material_override = mat
 	add_child(mi)
+
+func _stratum(pos: Vector3, scl: Vector3, rot: Vector3, mat: Material, variant: int) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = stratum_meshes[variant % stratum_meshes.size()]
+	mi.position = pos
+	mi.scale = scl
+	mi.rotation = rot
+	mi.material_override = mat
+	add_child(mi)
+
+# A flat-topped cliff mesa: 3-4 clean-cut strata stacked with upward taper
+# and a slight cap overhang, per the Sunlit Shallows cliff concept.
+# Solid rock throughout — no arches, no holes.
+func _build_cliff(r: RandomNumberGenerator, base: Vector3, base_w: float, height: float, mat: Material) -> void:
+	var levels := 3 + r.randi() % 2
+	var y := base.y
+	var w := base_w
+	var taper := r.randf_range(0.76, 0.84)
+	for i in levels:
+		var is_top := i == levels - 1
+		var lh := height / levels * r.randf_range(0.85, 1.15)
+		var lw := w * (1.10 if is_top else 1.0)
+		var depth := lw * r.randf_range(0.55, 0.75)
+		_stratum(
+			Vector3(base.x + r.randf_range(-w * 0.06, w * 0.06), y + lh * 0.5, base.z),
+			Vector3(lw, lh, depth),
+			Vector3(0.0, r.randf_range(-0.15, 0.15), 0.0),
+			mat,
+			r.randi() % 4)
+		y += lh
+		w *= taper
 
 func _build_environment() -> void:
 	var we := WorldEnvironment.new()
@@ -212,11 +251,8 @@ func _build_ranges() -> void:
 	_range(r, -1000.0, mat_sil_far, 14, 300.0, 900.0, 0.0)
 	# Farthest tier: wide low shapes, almost fully fogged — the deepest plane.
 	_range(r, -1150.0, mat_sil_far, 8, 500.0, 620.0, 300.0)
-	# Mid tier: slightly nearer, offset phase.
-	_range(r, -750.0, mat_sil_mid, 12, 260.0, 700.0, 140.0)
-	# Distant arches: two tilted pillars + a lintel, mid-tier depth so they
-	# read as designed structures rather than random boulders.
-	_build_arches(r)
+	# Mid tier: cliff mesas mixed with eroded slabs, offset phase.
+	_build_mid_cliffs(r)
 	# Spires: tall thin accents for vertical rhythm.
 	for i in 8:
 		var px := r.randf_range(-400.0, 3000.0)
@@ -245,32 +281,31 @@ func _range(r: RandomNumberGenerator, z: float, mat: Material, n: int, w_min: fl
 			r.randi() % 4)
 		x += step * r.randf_range(0.85, 1.1)
 
-# A distant rock arch: two outward-tilted pillars carrying a lintel.
-# Placed at the mid tier so it reads through the fog as a designed shape.
-func _build_arches(r: RandomNumberGenerator) -> void:
-	for i in 3:
-		var cx := r.randf_range(-200.0, 2800.0)
-		var top_y := r.randf_range(WORLD_BOTTOM + 700.0, WORLD_TOP - 500.0)
-		var half_w := r.randf_range(150.0, 230.0)
-		var pillar_h := r.randf_range(400.0, 580.0)
-		_boulder(
-			Vector3(cx - half_w, top_y - pillar_h * 0.5, -750.0),
-			Vector3(110.0, pillar_h, 200.0),
-			Vector3(0.0, 0.0, 0.10),
-			mat_sil_mid,
-			r.randi() % 4)
-		_boulder(
-			Vector3(cx + half_w, top_y - pillar_h * 0.5, -750.0),
-			Vector3(110.0, pillar_h, 200.0),
-			Vector3(0.0, 0.0, -0.10),
-			mat_sil_mid,
-			r.randi() % 4)
-		_boulder(
-			Vector3(cx, top_y, -750.0),
-			Vector3(half_w * 2.0 + 130.0, 110.0, 200.0),
-			Vector3.ZERO,
-			mat_sil_mid,
-			r.randi() % 4)
+# Mid tier: cliff mesas (~55%) mixed with eroded slabs. Cliffs sit at the
+# same depth as the old slabs so the parallax rhythm is unchanged.
+func _build_mid_cliffs(r: RandomNumberGenerator) -> void:
+	var x := -600.0
+	var n := 12
+	var step := 3800.0 / n
+	for i in n:
+		var cx := x + step * 0.5 + r.randf_range(-60.0, 60.0)
+		var z := -750.0 + r.randf_range(-50.0, 50.0)
+		if r.randf() < 0.55:
+			var base_w := r.randf_range(280.0, 480.0)
+			var h := r.randf_range(420.0, 800.0)
+			var base_y := r.randf_range(WORLD_BOTTOM + 250.0, WORLD_TOP - 250.0) - h * 0.5
+			_build_cliff(r, Vector3(cx, base_y, z), base_w, h, mat_sil_mid)
+		else:
+			var w := r.randf_range(260.0, 520.0)
+			var h2 := r.randf_range(280.0, 700.0)
+			var py := r.randf_range(WORLD_BOTTOM + 250.0, WORLD_TOP - 250.0)
+			_boulder(
+				Vector3(cx, py, z),
+				Vector3(w, h2, r.randf_range(160.0, 260.0)),
+				Vector3(r.randf_range(-0.12, 0.12), r.randf_range(-0.4, 0.4), r.randf_range(-0.12, 0.12)),
+				mat_sil_mid,
+				r.randi() % 4)
+		x += step * r.randf_range(0.85, 1.1)
 
 # GDScript mirror of the water ramp, for syncing fog/ambient to camera depth.
 func _water_color(depth2d: float) -> Color:
