@@ -1,8 +1,9 @@
 shader_type spatial;
-render_mode diffuse_lambert, specular_disabled;
+render_mode diffuse_lambert, specular_disabled, cull_disabled;
 
 // Warm sunlit tops, cool teal-gray shadow faces: the concept-art read,
-// computed from the world normal so one material serves the whole set.
+// computed from the face normal so one material serves the whole set.
+// Geometry is de-indexed with geometric face normals -> crisp low-poly facets.
 uniform vec3 top_color : source_color = vec3(0.96, 0.80, 0.58);
 uniform vec3 side_color : source_color = vec3(0.36, 0.47, 0.50);
 uniform float caustic_strength = 0.12;
@@ -30,13 +31,17 @@ void fragment() {
 	float side = 1.0 - abs(wnormal.y);
 	vec3 alb = mix(side_color, top_color, smoothstep(0.2, 0.7, up));
 	alb = mix(alb, side_color * 0.5, smoothstep(0.2, 0.8, down));
-	// Sedimentary strata lines on the side faces.
+	// Sedimentary strata: dark line with a lit lip just above it, so each
+	// stratum reads as a separate slab catching light on its edge.
 	float s = fract(wpos.y / 4.0);
 	float line = 1.0 - smoothstep(0.0, 0.12, s);
-	alb *= 1.0 - line * 0.35 * side;
-	// Large-scale tonal variation so faces are not flat.
+	float lip = smoothstep(0.10, 0.28, s) * (1.0 - smoothstep(0.28, 0.55, s));
+	alb *= 1.0 - line * 0.40 * side;
+	alb = mix(alb, top_color * 1.05, lip * 0.30 * side);
+	// Large-scale mottling + fine grain so faces are never flat.
 	float tone = sin(wpos.x * 0.11 + wpos.z * 0.13) * sin(wpos.y * 0.21 + wpos.x * 0.05);
-	alb *= 1.0 + tone * 0.05;
+	float grain = sin(wpos.x * 2.1 + wpos.y * 1.3) * sin(wpos.z * 1.7 - wpos.y * 2.3) * sin(wpos.y * 2.9 + wpos.x * 0.7);
+	alb *= 1.0 + tone * 0.08 + grain * 0.03;
 	ALBEDO = alb;
 	// Caustic shimmer lives on the rock, strongest up-facing and shallow.
 	float cmask = smoothstep(0.4, 0.9, up) * exp(-max(30.0 - wpos.y, 0.0) * 0.015);
