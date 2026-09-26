@@ -1,21 +1,21 @@
 class_name BG3DWorld
 extends Node3D
 
-# Real 3D background for the Sunlit Shallows: distant rock-silhouette ranges
-# with genuine 3D form, a world-locked depth-darkening water gradient, and
-# depth-synced atmosphere — rendered in a SubViewport on a CanvasLayer behind
-# the 2D gameplay canvas.
+# 3D background for the viewer: a few rock slabs on three depth planes with
+# real differential parallax, a world-locked depth-darkening water gradient,
+# and depth-synced atmosphere - rendered in a SubViewport on a CanvasLayer.
 #
-# Depth model: the 3D camera follows the 2D camera at PARALLAX (< 1), so the
-# far ranges drift slower than the foreground: real parallax depth. Fog color,
-# ambient light, and the water gradient all key off the 2D camera's absolute
-# depth, so the 3D melts into the 2D water column from surface to floor.
-#
-# The 2D art owns the mid/foreground (rock walls, spires, floor, actors).
-# This layer is strictly the FAR environment: dark navy silhouettes.
+# Depth model: dark detailed foreground gateways near the camera, mid slabs
+# floating in open water, pale far shapes. Each plane follows the 2D pan at
+# its own rate (1.0 / 0.7 / 0.4), so the planes drift against each other.
+# Fog color, ambient light, and the water gradient all key off the 2D
+# camera depth, so the 3D melts into the water column.
 
 const CAM_Z := 600.0
 const PARALLAX := 0.7
+const F_FORE := 1.0
+const F_MID := 0.7
+const F_BACK := 0.4
 const BASE_VIEW_H := 720.0 # 2D viewport height at zoom 1
 const WORLD_TOP := 400.0 # 3D y of content top (positive = above the surface)
 const WORLD_BOTTOM := -1800.0 # 3D y of content bottom
@@ -37,7 +37,10 @@ var boulder_meshes: Array[ArrayMesh] = []
 
 var mat_sil_far: StandardMaterial3D
 var mat_sil_mid: StandardMaterial3D
-var mat_sil_spire: StandardMaterial3D
+var mat_sil_fore: StandardMaterial3D
+var layer_fore: Node3D
+var layer_mid: Node3D
+var layer_back: Node3D
 
 func _ready() -> void:
 	viewport = get_viewport() as SubViewport
@@ -56,20 +59,19 @@ func _ready() -> void:
 func _mat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
-	# Unshaded: far silhouettes must never catch directional light on their
-	# facets (that flat-shaded CG look is what reads as "low-poly geometry"
-	# next to the 2D pixel art). Fog still applies, so they melt into the
-	# water column with distance.
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	# Shaded: the boulders carry flat face normals, so the directional light
+	# shades each facet. That lit/unlit facet variation IS the rock detail.
+	# Fog still applies, so they melt into the water column with distance.
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	m.roughness = 0.95
 	m.metallic = 0.0
 	return m
 
 func _build_materials() -> void:
-	# Distant silhouettes: dark navy, darker the farther the tier.
-	mat_sil_far = _mat(Color(0.03, 0.08, 0.17))
+	# Rock tiers: dark navy, darker when nearer the camera.
+	mat_sil_fore = _mat(Color(0.05, 0.10, 0.22))
 	mat_sil_mid = _mat(Color(0.05, 0.13, 0.26))
-	mat_sil_spire = _mat(Color(0.06, 0.15, 0.30))
+	mat_sil_far = _mat(Color(0.10, 0.18, 0.33))
 
 # Irregular faceted boulders: a subdivided box with seeded vertex jitter and
 # flat face normals. Reads as rock, not glass cubes.
@@ -116,14 +118,14 @@ func _make_boulder(salt: int) -> ArrayMesh:
 	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	return out
 
-func _boulder(pos: Vector3, scl: Vector3, rot: Vector3, mat: Material, variant: int) -> void:
+func _boulder(parent: Node3D, pos: Vector3, scl: Vector3, rot: Vector3, mat: Material, variant: int) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = boulder_meshes[variant % boulder_meshes.size()]
 	mi.position = pos
 	mi.scale = scl
 	mi.rotation = rot
 	mi.material_override = mat
-	add_child(mi)
+	parent.add_child(mi)
 
 func _build_environment() -> void:
 	var we := WorldEnvironment.new()
@@ -138,7 +140,7 @@ func _build_environment() -> void:
 	env.fog_light_color = COL_MID * 0.9
 	env.fog_light_energy = 1.0
 	env.fog_depth_begin = 700.0
-	env.fog_depth_end = 1700.0
+	env.fog_depth_end = 2000.0
 	env.fog_depth_curve = 1.0
 	we.environment = env
 	add_child(we)
@@ -183,8 +185,8 @@ func _build_backdrop() -> void:
 func _build_light() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -28, 0)
-	sun.light_color = Color(1.0, 0.97, 0.90)
-	sun.light_energy = 0.45
+	sun.light_color = Color(0.90, 0.95, 1.0)
+	sun.light_energy = 0.7
 	sun.shadow_enabled = false
 	add_child(sun)
 
@@ -202,38 +204,35 @@ func _sync_viewport_size() -> void:
 	if viewport != null:
 		viewport.size = Vector2i(get_tree().root.size)
 
-# Sparse, deliberate composition: a few hero slabs with open water between
-# them, backed by faint ridgelines. Solid rock only - no arches, no holes.
-# (Rebuilt from scratch 2026-09-26; the old dense scatter is gone.)
+# Three-plane parallax composition (rebuilt 2026-09-26 from the reference
+# shot): dark detailed foreground gateways framing the view, a couple of mid
+# slabs floating in open water, pale far shapes low in frame. Each plane lives
+# under its own container so panning produces real differential parallax.
 func _build_ranges() -> void:
 	var r := RandomNumberGenerator.new()
-	r.seed = 20260925
-	# Faintest ridgeline: wide, low, almost fully fogged.
-	_place(r, -1150.0, mat_sil_far,
-		[-500.0, 1000.0, 2500.0], 800.0, 1000.0, 320.0, 460.0)
-	# Second ridgeline: soft mid-fog shapes.
-	_place(r, -1000.0, mat_sil_far,
-		[200.0, 2000.0], 600.0, 800.0, 420.0, 560.0)
-	# Hero slabs: four well-separated forms, open water between each.
-	_place(r, -750.0, mat_sil_mid,
-		[-300.0, 800.0, 1900.0, 2900.0], 300.0, 460.0, 420.0, 760.0)
-	# Two slender spire accents for vertical rhythm.
-	_place(r, -620.0, mat_sil_spire,
-		[1350.0, 2450.0], 90.0, 140.0, 520.0, 900.0)
+	r.seed = 20260926
+	layer_fore = _make_layer("Fore")
+	layer_mid = _make_layer("Mid")
+	layer_back = _make_layer("Back")
+	# Foreground gateways: tall dark masses at the frame edges, center open.
+	_place(r, layer_fore, -150.0, mat_sil_fore, [600.0, 1950.0], 440.0, 520.0, 3200.0, 3600.0, -450.0, 150.0)
+	# Mid slabs: a couple of forms in open water.
+	_place(r, layer_mid, -600.0, mat_sil_mid, [800.0, 1200.0], 330.0, 420.0, 650.0, 900.0, -400.0, 150.0)
+	# Background: pale faint shapes, low in frame.
+	_place(r, layer_back, -1000.0, mat_sil_far, [950.0, 1650.0], 650.0, 800.0, 350.0, 450.0, 700.0, 250.0)
 
-func _place(r: RandomNumberGenerator, z: float, mat: Material,
-		xs: Array, w_min: float, w_max: float, h_min: float, h_max: float) -> void:
+func _make_layer(layer_name: String) -> Node3D:
+	var l := Node3D.new()
+	l.name = layer_name
+	add_child(l)
+	return l
+
+func _place(r: RandomNumberGenerator, layer: Node3D, z: float, mat: Material, xs: Array, w_min: float, w_max: float, h_min: float, h_max: float, y_center: float, y_jit: float) -> void:
 	for xv in xs:
 		var x := float(xv)
 		var w := r.randf_range(w_min, w_max)
 		var h := r.randf_range(h_min, h_max)
-		var py := r.randf_range(WORLD_BOTTOM + 300.0, WORLD_TOP - 300.0)
-		_boulder(
-			Vector3(x + r.randf_range(-120.0, 120.0), py, z + r.randf_range(-40.0, 40.0)),
-			Vector3(w, h, w * r.randf_range(0.45, 0.6)),
-			Vector3(r.randf_range(-0.08, 0.08), r.randf_range(-0.3, 0.3), r.randf_range(-0.08, 0.08)),
-			mat,
-			r.randi() % 4)
+		_boulder(layer, Vector3(x + r.randf_range(-100.0, 100.0), y_center + r.randf_range(-y_jit, y_jit), z + r.randf_range(-30.0, 30.0)), Vector3(w, h, w * r.randf_range(0.5, 0.65)), Vector3(r.randf_range(-0.06, 0.06), r.randf_range(-0.25, 0.25), r.randf_range(-0.06, 0.06)), mat, r.randi() % 4)
 
 # GDScript mirror of the water ramp, for syncing fog/ambient to camera depth.
 func _water_color(depth2d: float) -> Color:
@@ -248,6 +247,9 @@ func _process(_delta: float) -> void:
 		return
 	var center := c2d.get_screen_center_position()
 	cam.position = Vector3(center.x * PARALLAX, -center.y * PARALLAX, CAM_Z)
+	_shift_layer(layer_fore, F_FORE, center)
+	_shift_layer(layer_mid, F_MID, center)
+	_shift_layer(layer_back, F_BACK, center)
 	cam.size = BASE_VIEW_H / maxf(c2d.zoom.y, 0.01)
 	if backdrop != null:
 		backdrop.position = Vector3(cam.position.x, cam.position.y, -1350.0)
@@ -257,3 +259,9 @@ func _process(_delta: float) -> void:
 	env.fog_light_color = water * 0.92
 	env.ambient_light_color = water * 1.05
 	env.background_color = water
+
+# Differential parallax: each rock plane drifts at its own rate against the
+# 2D pan, so foreground gateways sweep past while far shapes barely move.
+func _shift_layer(layer: Node3D, f: float, center: Vector2) -> void:
+	if layer != null:
+		layer.position = Vector3(center.x * (PARALLAX - f), center.y * (f - PARALLAX), 0.0)
