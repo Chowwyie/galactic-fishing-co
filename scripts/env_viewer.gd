@@ -83,7 +83,7 @@ func _unhandled_input(event):
 			touches.erase(event.index)
 	elif event is InputEventScreenDrag and touches.size() == 1:
 		var prev: Vector2 = touches[event.index]
-		var delta := event.position - prev
+		var delta: Vector2 = event.position - prev
 		yaw -= delta.x * 0.008
 		pitch = clamp(pitch - delta.y * 0.008, -1.1, 0.6)
 		update_camera()
