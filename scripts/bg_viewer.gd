@@ -14,11 +14,9 @@ func _ready() -> void:
 	_build_bg3d()
 	cam = Camera2D.new()
 	cam.position = Vector2(1280.0, 450.0)
-	# Zoom out: the 3D ortho size is 720 / zoom, so 0.5 gives a 1440-unit
-	# view — on portrait phones the ranges read as distant silhouettes
-	# instead of filling the frame.
-	cam.zoom = Vector2(0.5, 0.5)
 	add_child(cam)
+	_fit_zoom()
+	get_tree().root.size_changed.connect(_fit_zoom)
 	cam.make_current()
 	var ui := CanvasLayer.new()
 	ui.layer = 10
@@ -28,6 +26,17 @@ func _ready() -> void:
 	hint.position = Vector2(16, 12)
 	hint.modulate = Color(1, 1, 1, 0.45)
 	ui.add_child(hint)
+
+# Fit the view width to the screen shape: the 3D ortho height is
+# 720 / zoom, so pick zoom to always show ~1400 world units across.
+# On landscape this is ~1.0 (the original game framing); on portrait
+# phones it zooms out so the ranges read as distant silhouettes.
+func _fit_zoom() -> void:
+	var vs := Vector2(get_tree().root.size)
+	if vs.y <= 0.0 or cam == null:
+		return
+	var z := 720.0 * (vs.x / vs.y) / 1400.0
+	cam.zoom = Vector2(z, z)
 
 func _build_bg3d() -> void:
 	# Real 3D background behind the 2D canvas: a SubViewport with its own
