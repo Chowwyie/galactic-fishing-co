@@ -46,10 +46,10 @@ void fragment() {
 	vec3 col = shallow_color.rgb * transmit;
 	col += deep_color.rgb * (1.0 - exp(-d * 3.0));
 
-	// Warp the ray domain with slow noise: bands become unevenly spaced
-	// and their edges undulate instead of running straight.
+	// A whisper of domain warp keeps edges alive; shafts stay straight
+	// (light travels straight) - the irregularity lives in brightness.
 	float warp = fbm(vec2(uv.x * 2.0, uv.y * 1.2) + vec2(TIME * 0.03, TIME * 0.012));
-	float slant = (uv.x + (warp - 0.5) * 0.35) * ray_count + uv.y * 1.6;
+	float slant = (uv.x + (warp - 0.5) * 0.05) * ray_count + uv.y * 1.6;
 	float band = pow(0.5 + 0.5 * sin(slant * 6.28318 + TIME * ray_speed), 3.0);
 	// Churn the brightness along each shaft with scrolling noise so the
 	// light evolves instead of translating rigidly.
