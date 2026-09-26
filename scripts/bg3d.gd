@@ -202,74 +202,37 @@ func _sync_viewport_size() -> void:
 	if viewport != null:
 		viewport.size = Vector2i(get_tree().root.size)
 
-# Distant silhouette ranges spanning the full depth of the world, at three
-# depth tiers. Wide, dark, heavily fogged: they read as far canyon ranges,
-# never as foreground objects.
+# Sparse, deliberate composition: a few hero slabs with open water between
+# them, backed by faint ridgelines. Solid rock only - no arches, no holes.
+# (Rebuilt from scratch 2026-09-26; the old dense scatter is gone.)
 func _build_ranges() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 20260925
-	# Far tier: the faintest ridgeline.
-	_range(r, -1000.0, mat_sil_far, 14, 300.0, 900.0, 0.0)
-	# Farthest tier: wide low shapes, almost fully fogged — the deepest plane.
-	_range(r, -1150.0, mat_sil_far, 8, 500.0, 620.0, 300.0)
-	# Mid tier: slightly nearer, offset phase.
-	_range(r, -750.0, mat_sil_mid, 12, 260.0, 700.0, 140.0)
-	# Distant arches: two tilted pillars + a lintel, mid-tier depth so they
-	# read as designed structures rather than random boulders.
-	_build_arches(r)
-	# Spires: tall thin accents for vertical rhythm.
-	for i in 8:
-		var px := r.randf_range(-400.0, 3000.0)
-		var ph := r.randf_range(500.0, 950.0)
-		var pw := r.randf_range(80.0, 150.0)
+	# Faintest ridgeline: wide, low, almost fully fogged.
+	_place(r, -1150.0, mat_sil_far,
+		[-500.0, 1000.0, 2500.0], 800.0, 1000.0, 320.0, 460.0)
+	# Second ridgeline: soft mid-fog shapes.
+	_place(r, -1000.0, mat_sil_far,
+		[200.0, 2000.0], 600.0, 800.0, 420.0, 560.0)
+	# Hero slabs: four well-separated forms, open water between each.
+	_place(r, -750.0, mat_sil_mid,
+		[-300.0, 800.0, 1900.0, 2900.0], 300.0, 460.0, 420.0, 760.0)
+	# Two slender spire accents for vertical rhythm.
+	_place(r, -620.0, mat_sil_spire,
+		[1350.0, 2450.0], 90.0, 140.0, 520.0, 900.0)
+
+func _place(r: RandomNumberGenerator, z: float, mat: Material,
+		xs: Array, w_min: float, w_max: float, h_min: float, h_max: float) -> void:
+	for xv in xs:
+		var x := float(xv)
+		var w := r.randf_range(w_min, w_max)
+		var h := r.randf_range(h_min, h_max)
 		var py := r.randf_range(WORLD_BOTTOM + 300.0, WORLD_TOP - 300.0)
 		_boulder(
-			Vector3(px, py, -600.0 + r.randf_range(-40.0, 40.0)),
-			Vector3(pw, ph, pw * r.randf_range(0.7, 1.0)),
-			Vector3(r.randf_range(-0.12, 0.12), r.randf_range(-0.4, 0.4), r.randf_range(-0.12, 0.12)),
-			mat_sil_spire,
-			r.randi() % 4)
-
-func _range(r: RandomNumberGenerator, z: float, mat: Material, n: int, w_min: float, h_max: float, x_off: float) -> void:
-	var x := -600.0 + x_off
-	var step := 3800.0 / n
-	for i in n:
-		var w := r.randf_range(w_min, w_min + 260.0)
-		var h := r.randf_range(280.0, h_max)
-		var py := r.randf_range(WORLD_BOTTOM + 250.0, WORLD_TOP - 250.0)
-		_boulder(
-			Vector3(x + step * 0.5 + r.randf_range(-60.0, 60.0), py, z + r.randf_range(-50.0, 50.0)),
-			Vector3(w, h, r.randf_range(160.0, 260.0)),
-			Vector3(r.randf_range(-0.12, 0.12), r.randf_range(-0.4, 0.4), r.randf_range(-0.12, 0.12)),
+			Vector3(x + r.randf_range(-120.0, 120.0), py, z + r.randf_range(-40.0, 40.0)),
+			Vector3(w, h, w * r.randf_range(0.45, 0.6)),
+			Vector3(r.randf_range(-0.08, 0.08), r.randf_range(-0.3, 0.3), r.randf_range(-0.08, 0.08)),
 			mat,
-			r.randi() % 4)
-		x += step * r.randf_range(0.85, 1.1)
-
-# A distant rock arch: two outward-tilted pillars carrying a lintel.
-# Placed at the mid tier so it reads through the fog as a designed shape.
-func _build_arches(r: RandomNumberGenerator) -> void:
-	for i in 3:
-		var cx := r.randf_range(-200.0, 2800.0)
-		var top_y := r.randf_range(WORLD_BOTTOM + 700.0, WORLD_TOP - 500.0)
-		var half_w := r.randf_range(150.0, 230.0)
-		var pillar_h := r.randf_range(400.0, 580.0)
-		_boulder(
-			Vector3(cx - half_w, top_y - pillar_h * 0.5, -750.0),
-			Vector3(110.0, pillar_h, 200.0),
-			Vector3(0.0, 0.0, 0.10),
-			mat_sil_mid,
-			r.randi() % 4)
-		_boulder(
-			Vector3(cx + half_w, top_y - pillar_h * 0.5, -750.0),
-			Vector3(110.0, pillar_h, 200.0),
-			Vector3(0.0, 0.0, -0.10),
-			mat_sil_mid,
-			r.randi() % 4)
-		_boulder(
-			Vector3(cx, top_y, -750.0),
-			Vector3(half_w * 2.0 + 130.0, 110.0, 200.0),
-			Vector3.ZERO,
-			mat_sil_mid,
 			r.randi() % 4)
 
 # GDScript mirror of the water ramp, for syncing fog/ambient to camera depth.
