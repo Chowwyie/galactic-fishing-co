@@ -8,7 +8,7 @@ uniform vec4 deep_color : source_color = vec4(0.01, 0.05, 0.13, 1.0);
 uniform float ray_intensity = 0.30;
 uniform float ray_count = 6.0;
 uniform float ray_speed = 0.35;
-uniform float shimmer_intensity = 0.05;
+uniform float shimmer_intensity = 0.04;
 uniform float vignette_strength = 0.25;
 
 void fragment() {
@@ -26,9 +26,12 @@ void fragment() {
 	rays *= pow(1.0 - uv.y, 1.8);
 	col += vec3(0.45, 0.72, 0.88) * rays * ray_intensity;
 
-	// Caustic shimmer: faint interfering waves, strongest near the top.
-	float c = sin(uv.x * 36.0 + TIME * 0.8 + sin(uv.y * 28.0 - TIME * 0.6) * 1.5);
-	c = pow(1.0 - abs(c), 10.0) * shimmer_intensity * (1.0 - uv.y);
+	// Caustic shimmer: two interfering waves make a soft dapple (not lines),
+	// strongest near the top, fading with depth.
+	float c1 = sin(uv.x * 60.0 + TIME * 1.1 + sin(uv.y * 44.0 - TIME * 0.9) * 2.0);
+	float c2 = sin((uv.x + uv.y) * 52.0 - TIME * 0.7);
+	float c = pow(clamp(c1 * c2 * 0.5 + 0.5, 0.0, 1.0), 6.0);
+	c *= shimmer_intensity * (1.0 - uv.y);
 	col += vec3(0.40, 0.70, 0.85) * c;
 
 	// Gentle vignette for depth.
