@@ -96,7 +96,7 @@ func _make_boulder(salt: int) -> ArrayMesh:
 		var v := mdt.get_vertex(i)
 		var key := "%0.2f|%0.2f|%0.2f" % [v.x, v.y, v.z]
 		if not seen.has(key):
-			seen[key] = v + Vector3(r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28), r.randf_range(-0.28, 0.28))
+			seen[key] = v + Vector3(r.randf_range(-0.16, 0.16), r.randf_range(-0.16, 0.16), r.randf_range(-0.16, 0.16))
 		mdt.set_vertex(i, seen[key])
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -217,7 +217,7 @@ func _build_ranges() -> void:
 	# Foreground gateways: tall dark masses at the frame edges, center open.
 	_place(r, layer_fore, -150.0, mat_sil_fore, [600.0, 1950.0], 440.0, 520.0, 3200.0, 3600.0, -450.0, 150.0)
 	# Mid slabs: a couple of forms in open water.
-	_place(r, layer_mid, -600.0, mat_sil_mid, [800.0, 1200.0], 330.0, 420.0, 650.0, 900.0, -400.0, 150.0)
+	_place(r, layer_mid, -600.0, mat_sil_mid, [750.0, 1300.0], 450.0, 560.0, 480.0, 660.0, -350.0, 100.0)
 	# Background: pale faint shapes, low in frame.
 	_place(r, layer_back, -1000.0, mat_sil_far, [950.0, 1650.0], 650.0, 800.0, 350.0, 450.0, 700.0, 250.0)
 
