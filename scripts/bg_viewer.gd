@@ -17,6 +17,7 @@ func _ready() -> void:
 	add_child(cam)
 	_fit_zoom()
 	get_tree().root.size_changed.connect(_fit_zoom)
+	_build_particles()
 	cam.make_current()
 	var ui := CanvasLayer.new()
 	ui.layer = 10
@@ -37,6 +38,82 @@ func _fit_zoom() -> void:
 		return
 	var z := 720.0 * (vs.x / vs.y) / 1400.0
 	cam.zoom = Vector2(z, z)
+
+# Soft radial sprite generated in code (no asset files needed).
+func _dot_texture() -> GradientTexture2D:
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = 32
+	t.height = 32
+	return t
+
+# Ring sprite for bubbles: transparent center, bright rim, soft edge.
+func _ring_texture() -> GradientTexture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.62, 0.8, 1.0])
+	g.colors = PackedColorArray([
+		Color(1, 1, 1, 0), Color(1, 1, 1, 0),
+		Color(0.92, 0.98, 1.0, 0.9), Color(0.92, 0.98, 1.0, 0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = 32
+	t.height = 32
+	return t
+
+var snow: CPUParticles2D
+var bubbles: CPUParticles2D
+
+# Restored from the game build: marine snow drifting down + micro-bubbles
+# rising. The emitters follow the camera so the field covers the pan range.
+func _build_particles() -> void:
+	snow = CPUParticles2D.new()
+	snow.amount = 380
+	snow.lifetime = 14.0
+	snow.preprocess = 14.0
+	snow.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	snow.emission_rect_extents = Vector2(800, 1600)
+	snow.direction = Vector2(0, 1)
+	snow.spread = 18.0
+	snow.initial_velocity_min = 8.0
+	snow.initial_velocity_max = 26.0
+	snow.gravity = Vector2.ZERO
+	snow.scale_amount_min = 0.7
+	snow.scale_amount_max = 1.6
+	snow.color = Color(1, 1, 1, 0.55)
+	snow.texture = _dot_texture()
+	add_child(snow)
+	bubbles = CPUParticles2D.new()
+	bubbles.amount = 70
+	bubbles.lifetime = 9.0
+	bubbles.preprocess = 9.0
+	bubbles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	bubbles.emission_rect_extents = Vector2(800, 1600)
+	bubbles.direction = Vector2(0, -1)
+	bubbles.spread = 30.0
+	bubbles.initial_velocity_min = 15.0
+	bubbles.initial_velocity_max = 40.0
+	bubbles.gravity = Vector2.ZERO
+	bubbles.scale_amount_min = 0.8
+	bubbles.scale_amount_max = 1.8
+	bubbles.color = Color(0.9, 0.97, 1.0, 0.5)
+	bubbles.texture = _ring_texture()
+	add_child(bubbles)
+
+func _process(_delta: float) -> void:
+	if cam != null:
+		if snow != null:
+			snow.position = cam.position
+		if bubbles != null:
+			bubbles.position = cam.position
 
 func _build_bg3d() -> void:
 	# Real 3D background behind the 2D canvas: a SubViewport with its own
