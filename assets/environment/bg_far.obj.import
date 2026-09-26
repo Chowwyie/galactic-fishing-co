@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dbg64tmhvoc1v"
+path="res://.godot/imported/bg_far.obj-8c9e44c00db52f9d9de8aabff7215edc.mesh"
+
+[deps]
+
+files=["res://.godot/imported/bg_far.obj-8c9e44c00db52f9d9de8aabff7215edc.mesh"]
+
+source_file="res://assets/environment/bg_far.obj"
+dest_files=["res://.godot/imported/bg_far.obj-8c9e44c00db52f9d9de8aabff7215edc.mesh", "res://.godot/imported/bg_far.obj-8c9e44c00db52f9d9de8aabff7215edc.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false
