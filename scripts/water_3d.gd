@@ -43,8 +43,8 @@ func _rebuild() -> void:
 
 
 func _clear(node: Node) -> void:
-	if is_instance_valid(node):
-		remove_child(node)
+	if is_instance_valid(node) and is_instance_valid(node.get_parent()):
+		node.get_parent().remove_child(node)
 		node.free()
 
 
@@ -84,29 +84,43 @@ func _build_cards() -> void:
 
 
 func _build_snow() -> void:
+	# Emitter holder tilted 30 deg (half the camera FOV) so its local X/Z plane
+	# rides exactly on the frustum top plane: local +y is the above-frame
+	# direction, local -z runs away from the camera along the top of the view.
+	# Motes spawn in a thin strip just above the frame and fall through it, so
+	# nothing ever spawns or dies inside the visible volume. Parented to the
+	# camera so the strip tracks the drift.
 	_snow_root = Node3D.new()
 	_snow_root.name = "Snow"
-	add_child(_snow_root)
-	var hw := _frustum_half_width(50.0, _viewport_aspect())
-	_make_snow_layer(320, 0.12, 0.7, 1.4, 0.5, hw)
-	_make_snow_layer(40, 0.35, 0.8, 1.3, 0.65, hw)
+	_snow_root.rotation.x = deg_to_rad(30.0)
+	camera.add_child(_snow_root)
+	var aspect := _viewport_aspect()
+	var xw_near := _frustum_half_width(34.0, aspect)
+	var xw_far := _frustum_half_width(64.0, aspect)
+	_make_snow_band(140, 0.12, 0.7, 1.4, 0.5, -27.5, 12.5, xw_near)
+	_make_snow_band(360, 0.12, 0.7, 1.4, 0.5, -57.5, 17.5, xw_far)
+	_make_snow_band(18, 0.35, 0.8, 1.3, 0.65, -27.5, 12.5, xw_near)
+	_make_snow_band(46, 0.35, 0.8, 1.3, 0.65, -57.5, 17.5, xw_far)
 
 
-func _make_snow_layer(amount: int, mesh_size: float, s_min: float, s_max: float, alpha: float, hw: float) -> void:
-	var p := CPUParticles3D.new()
-	p.amount = amount
-	p.lifetime = 30.0
-	p.preprocess = 30.0
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(hw * 1.05, 26.0, 30.0)
-	p.position = Vector3(0.0, 4.0, -45.0)
-	p.direction = Vector3(0.0, -1.0, 0.0)
-	p.spread = 10.0
-	p.initial_velocity_min = 0.8
-	p.initial_velocity_max = 2.0
-	p.gravity = Vector3.ZERO
-	p.scale_amount_min = s_min
-	p.scale_amount_max = s_max
+func _make_snow_band(amount: int, mesh_size: float, s_min: float, s_max: float,
+		alpha: float, zc: float, z_half: float, x_hw: float) -> void:
+	var q := CPUParticles3D.new()
+	q.amount = amount
+	q.lifetime = 105.0
+	q.preprocess = 105.0
+	q.local_coords = false
+	q.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	q.emission_box_extents = Vector3(x_hw * 1.05, 1.0, z_half)
+	q.position = Vector3(0.0, 2.0, zc)
+	# SnowTilt-space vector that maps to world straight-down.
+	q.direction = Vector3(0.0, -0.866, 0.5)
+	q.spread = 10.0
+	q.initial_velocity_min = 0.8
+	q.initial_velocity_max = 2.0
+	q.gravity = Vector3.ZERO
+	q.scale_amount_min = s_min
+	q.scale_amount_max = s_max
 	var quad := QuadMesh.new()
 	quad.size = Vector2(mesh_size, mesh_size)
 	var bm := StandardMaterial3D.new()
@@ -115,13 +129,13 @@ func _make_snow_layer(amount: int, mesh_size: float, s_min: float, s_max: float,
 	bm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
 	quad.material = bm
-	p.mesh = quad
-	# Fade in/out over lifetime so motes never pop inside the volume.
+	q.mesh = quad
+	# Safety-net fade; spawn and death both happen off-screen now.
 	var grad := Gradient.new()
 	grad.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
 	grad.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
 	grad.add_point(0.12, Color(1.0, 1.0, 1.0, alpha))
 	grad.add_point(0.88, Color(1.0, 1.0, 1.0, alpha))
-	p.color_ramp = grad
-	p.visibility_aabb = AABB(Vector3(-80.0, -40.0, -110.0), Vector3(160.0, 130.0, 130.0))
-	_snow_root.add_child(p)
+	q.color_ramp = grad
+	q.visibility_aabb = AABB(Vector3(-90.0, -60.0, -120.0), Vector3(180.0, 170.0, 150.0))
+	_snow_root.add_child(q)
