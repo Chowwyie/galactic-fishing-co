@@ -13,7 +13,11 @@ const PAN_MAX := Vector2(2560.0, 1600.0)
 func _ready() -> void:
 	_build_bg3d()
 	cam = Camera2D.new()
-	cam.position = Vector2(1280.0, 300.0)
+	cam.position = Vector2(1280.0, 450.0)
+	# Zoom out: the 3D ortho size is 720 / zoom, so 0.5 gives a 1440-unit
+	# view — on portrait phones the ranges read as distant silhouettes
+	# instead of filling the frame.
+	cam.zoom = Vector2(0.5, 0.5)
 	add_child(cam)
 	cam.make_current()
 	var ui := CanvasLayer.new()
