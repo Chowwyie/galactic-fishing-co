@@ -1,10 +1,41 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/water_3d.tscn" id="1_water"]
+[ext_resource type="Script" path="res://scripts/set_viewer.gd" id="1_viewer"]
 [ext_resource type="PackedScene" path="res://scenes/cliff_set.tscn" id="2_cliff"]
 
-[node name="SetViewer" type="Node3D"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_simple"]
+sky_top_color = Color(0.05, 0.35, 0.5, 1)
+sky_horizon_color = Color(0.04, 0.25, 0.38, 1)
+ground_bottom_color = Color(0.02, 0.12, 0.2, 1)
+ground_horizon_color = Color(0.04, 0.25, 0.38, 1)
 
-[node name="Water" parent="." instance=ExtResource("1_water")]
+[sub_resource type="Sky" id="Sky_simple"]
+sky_material = SubResource("ProceduralSkyMaterial_simple")
+
+[sub_resource type="Environment" id="Environment_simple"]
+background_mode = 2
+sky = SubResource("Sky_simple")
+ambient_light_source = 2
+ambient_light_color = Color(0.2, 0.45, 0.65, 1)
+ambient_light_energy = 0.6
+fog_enabled = true
+fog_light_color = Color(0.09, 0.3, 0.48, 1)
+fog_density = 0.015
+
+[node name="SetViewer" type="Node3D"]
+script = ExtResource("1_viewer")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_simple")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-1.308997, 0.349066, 0)
+light_color = Color(0.9, 0.97, 1, 1)
+light_energy = 1.0
+shadow_enabled = false
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5)
+fov = 60.0
 
 [node name="CliffSet" parent="." instance=ExtResource("2_cliff")]
