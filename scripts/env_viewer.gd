@@ -113,6 +113,8 @@ func _add_particles():
 	p.position = Vector3(0, 15, 0)
 	
 	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(50, 20, 30)
 	pm.direction = Vector3(0, -1, 0)
 	pm.spread = 20.0
 	pm.initial_velocity_min = 0.3
