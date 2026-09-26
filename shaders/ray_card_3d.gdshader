@@ -36,7 +36,9 @@ void fragment() {
 	vec2 uv = UV;
 	float across = 1.0 - abs(uv.x - 0.5) * 2.0;
 	across = pow(max(across, 0.0), 1.8);
-	float down = pow(1.0 - uv.y, 1.6);
+	// Bright through the upper shaft, fading down; also faded right at the
+	// top edge so no hard source line is ever visible.
+	float down = pow(1.0 - uv.y, 1.4) * smoothstep(0.0, 0.18, uv.y);
 	float n = fbm(vec2(uv.x * 3.0 + seed, uv.y * 2.5 - TIME * 0.05));
 	float edge = fbm(vec2(uv.x * 7.0 - seed, uv.y * 5.0 + TIME * 0.04));
 	float body = across * down * (0.5 + 0.5 * n) * smoothstep(0.1, 0.55, edge + across * 0.45);

@@ -69,14 +69,16 @@ func _build_cards() -> void:
 		var hw := _frustum_half_width(dist, aspect)
 		var mi := MeshInstance3D.new()
 		var quad := QuadMesh.new()
-		quad.size = Vector2(rng.randf_range(4.0, 9.0), rng.randf_range(45.0, 60.0))
+		quad.size = Vector2(rng.randf_range(4.0, 9.0), rng.randf_range(70.0, 85.0))
 		mi.mesh = quad
 		var mat := ShaderMaterial.new()
 		mat.shader = RAY_SHADER
 		mat.set_shader_parameter("intensity", rng.randf_range(0.35, 0.6) * exp(-dist * 0.008))
 		mat.set_shader_parameter("seed", rng.randf() * 100.0)
 		mi.material_override = mat
-		mi.position = Vector3(rng.randf_range(-0.85, 0.85) * hw, rng.randf_range(2.0, 14.0), z)
+		# Tall enough that the top is always above the frame: shafts emerge
+		# from the bright surface water, never from a visible edge.
+		mi.position = Vector3(rng.randf_range(-0.85, 0.85) * hw, rng.randf_range(16.0, 26.0), z)
 		mi.rotation.z = deg_to_rad(10.0)
 		_cards_root.add_child(mi)
 
