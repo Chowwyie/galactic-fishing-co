@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Galactic Fishing Co. - Water"
-run/main_scene="res://scenes/water_3d.tscn"
+run/main_scene="res://scenes/set_viewer.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]

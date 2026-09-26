@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/water_3d.tscn" id="1_water"]
+[ext_resource type="PackedScene" path="res://scenes/cliff_set.tscn" id="2_cliff"]
+
+[node name="SetViewer" type="Node3D"]
+
+[node name="Water" parent="." instance=ExtResource("1_water")]
+
+[node name="CliffSet" parent="." instance=ExtResource("2_cliff")]
