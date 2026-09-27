@@ -102,12 +102,22 @@ func _jump_to(tx: float) -> void:
 
 
 func _copy_debug_state() -> void:
-	var cp := camera.position
+	var cp := camera.global_position
 	var txt := "CAM x=%.2f y=%.2f z=%.2f" % [cp.x, cp.y, cp.z]
 	if _hills:
 		var hp := _hills.global_position
-		txt += " | HILL x=%.2f y=%.2f z=%.2f" % [hp.x, hp.y, hp.z]
-		txt += " | DIST=%.2f" % cp.distance_to(hp)
+		txt += " HILL x=%.2f y=%.2f z=%.2f" % [hp.x, hp.y, hp.z]
+		var inside: Array[String] = []
+		for mi in _hills.find_children("*", "MeshInstance3D", true, false):
+			var m := mi as MeshInstance3D
+			if m and m.mesh:
+				var gaabb := m.global_transform * m.get_aabb()
+				if gaabb.has_point(cp):
+					inside.append(m.name)
+		if inside.is_empty():
+			txt += " INSIDE none"
+		else:
+			txt += " INSIDE " + str(inside)
 	DisplayServer.clipboard_set(txt)
 	if _debug_label:
 		_debug_label.text = "Copied!"
