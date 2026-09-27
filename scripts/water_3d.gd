@@ -101,6 +101,17 @@ func _jump_to(tx: float) -> void:
 			clampf(tx, -PAN_RANGE, PAN_RANGE), 0.6)		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
+func _copy_debug_state() -> void:
+	var cp := camera.position
+	var txt := "CAM x=%.2f y=%.2f z=%.2f" % [cp.x, cp.y, cp.z]
+	if _hills:
+		var hp := _hills.global_position
+		txt += " | HILL x=%.2f y=%.2f z=%.2f" % [hp.x, hp.y, hp.z]
+		txt += " | DIST=%.2f" % cp.distance_to(hp)
+	DisplayServer.clipboard_set(txt)
+	if _debug_label:
+		_debug_label.text = "Copied!"
+
 func _debug_bg() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.0, 0.0, 0.0, 0.45)
@@ -146,6 +157,12 @@ func _build_debug_ui() -> void:
 		var tx: float = preset[1]
 		b.pressed.connect(_jump_to.bind(tx))
 		bar.add_child(b)
+	var cb := Button.new()
+	cb.text = "Copy"
+	cb.custom_minimum_size = Vector2(112, 64)
+	cb.add_theme_font_size_override("font_size", 24)
+	cb.pressed.connect(_copy_debug_state)
+	bar.add_child(cb)
 
 
 func _build_light() -> void:
