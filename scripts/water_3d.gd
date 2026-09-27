@@ -11,17 +11,38 @@ const HILL_SHADER := preload("res://shaders/hill_facet.gdshader")
 var _cam_base := Vector3(0.0, 2.0, 5.0)
 var _cards_root: Node3D
 var _snow_root: Node3D
+var _debug_pan := false
+const PAN_RANGE := 350.0
+const PAN_SPEED := 60.0
 
 @onready var camera: Camera3D = $Camera3D
 
 
 func _ready() -> void:
 	# Camera is locked on the single 2D play plane: straight-on, fixed.
+	# Debug: ?debug_pan=1 in URL enables WASD/arrow panning (not part of game).
+	if OS.has_feature("web"):
+		var win = JavaScriptBridge.get_interface("window")
+		if win != null:
+			var search: String = str(win.location.search)
+			_debug_pan = search.contains("debug_pan")
 	camera.position = _cam_base
 	_build_light()
 	_build_hills()
 	get_viewport().size_changed.connect(_rebuild)
 	_rebuild()
+
+
+func _process(delta: float) -> void:
+	if not _debug_pan:
+		return
+	var dir := 0.0
+	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+		dir -= 1.0
+	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+		dir += 1.0
+	if dir != 0.0:
+		camera.position.x = clampf(camera.position.x + dir * PAN_SPEED * delta, -PAN_RANGE, PAN_RANGE)
 
 
 func _build_light() -> void:
