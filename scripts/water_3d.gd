@@ -24,6 +24,9 @@ const PRESET_DEEP := 320.0
 var _debug_label: Label
 var _hills: Node3D
 var _pan_tween: Tween
+var _hill_mat: ShaderMaterial
+var _last_query := ""
+var _cam_x_req := "none"
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -51,16 +54,20 @@ func _check_debug() -> void:
 			var search: String = str(win.location.search)
 			_debug_pan = search.contains("debug_pan")
 			# ?cam_x=129 — jump the camera to an exact x for debugging
-			var cx_idx := search.find("cam_x=")
-			if cx_idx >= 0:
-				var cx_end := search.find("&", cx_idx)
-				var cx_str := search.substr(cx_idx + 6, cx_end - cx_idx - 6 if cx_end >= 0 else search.length())
-				if cx_str.is_valid_float():
-					_cam_base.x = clampf(cx_str.to_float(), -PAN_RANGE, PAN_RANGE)
+			_last_query = search
+			# Split-based parse (no index arithmetic) so malformed queries fail safe.
+			for pair in search.split("&"):
+				var kv := pair.split("=")
+				if kv.size() != 2:
+					continue
+				if kv[0].trim_prefix("?").strip_edges() == "cam_x" and kv[1].is_valid_float():
+					_cam_base.x = clampf(kv[1].to_float(), -PAN_RANGE, PAN_RANGE)
+					_cam_x_req = kv[1]
 
 
 func _process(delta: float) -> void:
 	_wrap_cards()
+	_update_light_envelope()
 	if not _debug_pan:
 		return
 	var dir := 0.0
@@ -72,7 +79,7 @@ func _process(delta: float) -> void:
 		camera.position.x = clampf(camera.position.x + dir * PAN_SPEED * delta, -PAN_RANGE, PAN_RANGE)
 	if _debug_label:
 		var pct := (camera.position.x - ZONE_MIN_X) / (ZONE_MAX_X - ZONE_MIN_X) * 100.0
-		var dtxt := "CAM x=%d y=%d %d%%" % [roundi(camera.position.x), roundi(camera.position.y), roundi(pct)]
+		var dtxt := "CAM x=%d y=%d %d%% sun=%.2f" % [roundi(camera.position.x), roundi(camera.position.y), roundi(pct), _sun_level(camera.position.x)]
 		if _hills:
 			dtxt += " | HILL d=%d" % roundi(camera.position.distance_to(_hills.global_position))
 		_debug_label.text = dtxt
@@ -118,6 +125,7 @@ func _copy_debug_state() -> void:
 	txt += "CAM pos(%.2f,%.2f,%.2f) rot(%.1f,%.1f,%.1f) fov=%.1f near=%.2f far=%.1f\n" % [cp.x, cp.y, cp.z, cr.x, cr.y, cr.z, camera.fov, camera.near, camera.far]
 	var vp_size := get_viewport().get_visible_rect().size
 	txt += "VIEWPORT %dx%d\n" % [int(vp_size.x), int(vp_size.y)]
+	txt += "QUERY %s | cam_x_req=%s | sun=%.3f\n" % [_last_query, _cam_x_req, _sun_level(camera.position.x)]
 	# Hill cluster transform
 	if _hills:
 		var hp := _hills.global_position
@@ -276,6 +284,7 @@ func _build_hills() -> void:
 	add_child(hills)
 	var mat := ShaderMaterial.new()
 	mat.shader = HILL_SHADER
+	_hill_mat = mat
 	for mi in hills.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).material_override = mat
 
@@ -317,6 +326,44 @@ func _wrap_cards() -> void:
 			c.position.x -= CARD_WRAP
 
 
+# Horizontal sunlight envelope: full sun through the shallows (x <= 140),
+# smooth taper into the deep, holding deep-dark from x = 320 on.
+# The deep zone stays dark by design, not by accident.
+const SUN_FULL_X := 140.0
+const SUN_DEEP_X := 320.0
+const SUN_DEEP_LEVEL := 0.22
+
+
+func _sun_level(x: float) -> float:
+	if x <= SUN_FULL_X:
+		return 1.0
+	if x >= SUN_DEEP_X:
+		return SUN_DEEP_LEVEL
+	var t := (x - SUN_FULL_X) / (SUN_DEEP_X - SUN_FULL_X)
+	t = t * t * (3.0 - 2.0 * t)
+	return lerpf(1.0, SUN_DEEP_LEVEL, t)
+
+
+func _update_light_envelope() -> void:
+	if camera == null:
+		return
+	# Rays dim spatially: each shaft brightness follows the sunlight at its
+	# own world x, so the fade into the deep is positional, never a pop.
+	if _cards_root != null:
+		for c in _cards_root.get_children():
+			var mi := c as MeshInstance3D
+			if mi == null or not mi.has_meta("base_intensity"):
+				continue
+			var s := _sun_level((c as Node3D).position.x)
+			var mat := mi.material_override as ShaderMaterial
+			if mat != null:
+				mat.set_shader_parameter("intensity", float(mi.get_meta("base_intensity")) * lerpf(0.25, 1.0, s))
+	# Hills use the camera-centric level (single cluster): the shader cools
+	# and dims the toon ramp and thickens fog as the sun goes.
+	if _hill_mat != null:
+		_hill_mat.set_shader_parameter("sun_level", _sun_level(camera.position.x))
+
+
 func _build_cards() -> void:
 	_cards_root = Node3D.new()
 	_cards_root.name = "RayCards"
@@ -334,12 +381,18 @@ func _build_cards() -> void:
 		mi.mesh = quad
 		var mat := ShaderMaterial.new()
 		mat.shader = RAY_SHADER
-		mat.set_shader_parameter("intensity", rng.randf_range(0.35, 0.6) * exp(-dist * 0.008))
+		var base_intensity := rng.randf_range(0.35, 0.6) * exp(-dist * 0.008)
+		mat.set_shader_parameter("intensity", base_intensity)
+		mi.set_meta("base_intensity", base_intensity)
 		mat.set_shader_parameter("seed", rng.randf() * 100.0)
 		mi.material_override = mat
 		# Tall enough that the top is always above the frame: shafts emerge
 		# from the bright surface water, never from a visible edge.
-		mi.position = Vector3(rng.randf_range(-1.0, 1.0) * CARD_WRAP * 0.5, rng.randf_range(16.0, 26.0), z)
+		# Stratified x: one shaft per band across the wrap window (plus jitter),
+		# so shaft density is constant at every camera x - no bright clusters,
+		# no dark gaps. Fixed seed = fixed set, nothing randomizes at runtime.
+		var sx := -CARD_WRAP * 0.5 + (float(i) + 0.5) * (CARD_WRAP / float(CARD_COUNT)) + rng.randf_range(-3.5, 3.5)
+		mi.position = Vector3(sx, rng.randf_range(16.0, 26.0), z)
 		mi.rotation.z = deg_to_rad(10.0)
 		_cards_root.add_child(mi)
 

@@ -24,6 +24,10 @@ uniform vec3 facet_mean = vec3(0.0, 0.2, 0.98);
 uniform float facet_boost = 4.0;
 uniform vec3 fog_color : source_color = vec3(0.09, 0.30, 0.48);
 uniform float fog_density = 0.005;
+// Sunlight envelope (set per-frame from camera x): 1.0 = full sunlit
+// shallows, ~0.22 = deep zone. Cools/dims facets and thickens fog as the
+// camera leaves the sunlit zone so the deep stays dark by design.
+uniform float sun_level = 1.0;
 
 varying float v_view_dist;
 
@@ -38,7 +42,11 @@ void fragment() {
 	float ndf = dot(fn, normalize(fill_dir)) * fill_strength;
 	float lit = max(ndl, ndf);
 	vec3 ramp = lit > 0.62 ? col_light : (lit > 0.57 ? col_mid : col_dark);
-	float f = 1.0 - exp(-fog_density * v_view_dist);
+	// Deep zone: cool and dim the warm sunlit facets toward ambient blue,
+	// and let the fog close in a little faster.
+	ramp = mix(ramp * vec3(0.40, 0.52, 0.68), ramp, sun_level);
+	float fog_d = fog_density + (1.0 - sun_level) * 0.004;
+	float f = 1.0 - exp(-fog_d * v_view_dist);
 	ALBEDO = mix(ramp, fog_color, f);
 	ROUGHNESS = 1.0;
 }
