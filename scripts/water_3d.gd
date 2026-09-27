@@ -125,7 +125,17 @@ func _copy_debug_state() -> void:
 		var wp := m.global_position
 		var ws := m.global_transform.basis.get_scale()
 		var aabb := m.global_transform * m.get_aabb()
-		var in_f := camera.is_position_in_frustum(wp)
+		var in_f := false
+		for cx in [aabb.position.x, aabb.end.x]:
+			for cy in [aabb.position.y, aabb.end.y]:
+				for cz in [aabb.position.z, aabb.end.z]:
+					if camera.is_position_in_frustum(Vector3(cx, cy, cz)):
+						in_f = true
+						break
+				if in_f:
+					break
+			if in_f:
+				break
 		var dist := cp.distance_to(wp)
 		var vis := "V" if m.visible else "H"
 		# Screen rect if in frustum
