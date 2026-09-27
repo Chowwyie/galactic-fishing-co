@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode specular_disabled, unshaded;
+render_mode specular_disabled, unshaded, fog_disabled;
 
 // Faceted 3-step toon ramp for the hill set pieces. The mesh carries flat
 // face normals (Blender use_smooth=False), so each facet lands on one step
@@ -23,7 +23,7 @@ uniform float fill_strength = 0.45;
 uniform vec3 facet_mean = vec3(0.0, 0.2, 0.98);
 uniform float facet_boost = 4.0;
 uniform vec3 fog_color : source_color = vec3(0.09, 0.30, 0.48);
-uniform float fog_density = 0.005;
+uniform float fog_density = 0.003;
 // Sunlight envelope (set per-frame from camera x): 1.0 = full sunlit
 // shallows, ~0.22 = deep zone. Cools/dims facets and thickens fog as the
 // camera leaves the sunlit zone so the deep stays dark by design.
