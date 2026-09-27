@@ -102,61 +102,72 @@ func _jump_to(tx: float) -> void:
 
 
 func _copy_debug_state() -> void:
-	var txt := "FRAME BREAKDOWN\n"
-	txt += "Camera: (%.2f, %.2f, %.2f)\n" % [camera.global_position.x, camera.global_position.y, camera.global_position.z]
+	var txt := "=== FRAME STATE ===\n"
+	# Camera full state
+	var cp := camera.global_position
+	var cr := camera.global_rotation_degrees
+	txt += "CAM pos(%.2f,%.2f,%.2f) rot(%.1f,%.1f,%.1f) fov=%.1f near=%.2f far=%.1f\n" % [cp.x, cp.y, cp.z, cr.x, cr.y, cr.z, camera.fov, camera.near, camera.far]
 	var vp_size := get_viewport().get_visible_rect().size
-	txt += "Viewport: %dx%d\n" % [int(vp_size.x), int(vp_size.y)]
-	var idx := 0
+	txt += "VIEWPORT %dx%d\n" % [int(vp_size.x), int(vp_size.y)]
+	# Hill cluster transform
+	if _hills:
+		var hp := _hills.global_position
+		var hs := _hills.global_transform.basis.get_scale()
+		txt += "HILLS pos(%.2f,%.2f,%.2f) scale(%.3f,%.3f,%.3f)\n" % [hp.x, hp.y, hp.z, hs.x, hs.y, hs.z]
+	# ALL meshes (not just in frustum)
+	txt += "--- MESHES ---\n"
 	var meshes: Array[MeshInstance3D] = []
 	_collect_meshes(self, meshes)
+	var idx := 0
 	for m in meshes:
-		if not m.visible or not m.mesh:
+		if not m.mesh:
 			continue
 		var wp := m.global_position
+		var ws := m.global_transform.basis.get_scale()
 		var aabb := m.global_transform * m.get_aabb()
-		# Check if ANY AABB corner is in frustum (not just origin)
-		var any_in := false
-		for cx in [aabb.position.x, aabb.end.x]:
-			for cy in [aabb.position.y, aabb.end.y]:
-				for cz in [aabb.position.z, aabb.end.z]:
-					if camera.is_position_in_frustum(Vector3(cx, cy, cz)):
-						any_in = true
-						break
-				if any_in:
-					break
-			if any_in:
-				break
-		if not any_in:
-			continue
-		var dist := camera.global_position.distance_to(wp)
-		var min2 := Vector2(INF, INF)
-		var max2 := Vector2(-INF, -INF)
-		for cx in [aabb.position.x, aabb.end.x]:
-			for cy in [aabb.position.y, aabb.end.y]:
-				for cz in [aabb.position.z, aabb.end.z]:
-					var corner := Vector3(cx, cy, cz)
-					if camera.is_position_behind(corner):
-						continue
-					var p2 := camera.unproject_position(corner)
-					min2.x = minf(min2.x, p2.x)
-					min2.y = minf(min2.y, p2.y)
-					max2.x = maxf(max2.x, p2.x)
-					max2.y = maxf(max2.y, p2.y)
-		if min2.x > max2.x:
-			continue
-		var w := max2.x - min2.x
-		var h := max2.y - min2.y
-		# Also report AABB world bounds
-		txt += "%d. %s | world(%.1f,%.1f,%.1f) | aabbY[%.1f,%.1f] | screen(%.0f,%.0f %dx%d) | d=%.1f\n" % [idx, m.name, wp.x, wp.y, wp.z, aabb.position.y, aabb.end.y, min2.x, min2.y, int(w), int(h), dist]
+		var in_f := camera.is_position_in_frustum(wp)
+		var dist := cp.distance_to(wp)
+		var vis := "V" if m.visible else "H"
+		# Screen rect if in frustum
+		var scr := ""
+		if in_f:
+			var min2 := Vector2(INF, INF)
+			var max2 := Vector2(-INF, -INF)
+			for cx in [aabb.position.x, aabb.end.x]:
+				for cy in [aabb.position.y, aabb.end.y]:
+					for cz in [aabb.position.z, aabb.end.z]:
+						var corner := Vector3(cx, cy, cz)
+						if camera.is_position_behind(corner):
+							continue
+						var p2 := camera.unproject_position(corner)
+						min2.x = minf(min2.x, p2.x)
+						min2.y = minf(min2.y, p2.y)
+						max2.x = maxf(max2.x, p2.x)
+						max2.y = maxf(max2.y, p2.y)
+			if min2.x <= max2.x:
+				scr = " scr(%.0f,%.0f %dx%d)" % [min2.x, min2.y, int(max2.x - min2.x), int(max2.y - min2.y)]
+		txt += "%d. [%s]%s pos(%.1f,%.1f,%.1f) scale(%.2f,%.2f,%.2f) aabbY[%.1f,%.1f] frustum=%s d=%.1f%s\n" % [idx, vis, m.name, wp.x, wp.y, wp.z, ws.x, ws.y, ws.z, aabb.position.y, aabb.end.y, str(in_f), dist, scr]
 		idx += 1
-		if idx >= 20:
-			txt += "... (truncated)\n"
+		if idx >= 30:
+			txt += "... truncated\n"
 			break
-	if idx == 0:
-		txt += "(no meshes in frustum)\n"
+	# Lights
+	txt += "--- LIGHTS ---\n"
+	var lights: Array[Light3D] = []
+	_collect_lights(self, lights)
+	for l in lights:
+		var lp := l.global_position
+		txt += "%s pos(%.1f,%.1f,%.1f) energy=%.2f shadow=%s\n" % [l.name, lp.x, lp.y, lp.z, l.light_energy, str(l.shadow_enabled)]
 	DisplayServer.clipboard_set(txt)
 	if _debug_label:
-		_debug_label.text = "Copied %d!" % idx
+		_debug_label.text = "Copied %d meshes!" % idx
+
+
+func _collect_lights(n: Node, out: Array[Light3D]) -> void:
+	if n is Light3D:
+		out.append(n as Light3D)
+	for child in n.get_children():
+		_collect_lights(child, out)
 
 
 func _collect_meshes(n: Node, out: Array[MeshInstance3D]) -> void:
