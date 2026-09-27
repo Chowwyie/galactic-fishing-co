@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Hero Mesa #1 &mdash; Sunlit Shallows</title>
+<title>Hill #1 &mdash; Sunlit Shallows</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0a3a50;
 background:linear-gradient(to bottom,#0d5a76 0%,#0a3a50 35%,#06222e 70%,#04141d 100%);}
 #c{position:fixed;inset:0;}
 #hud{position:fixed;left:12px;top:12px;color:#cfe8ef;font:13px/1.5 -apple-system,system-ui,sans-serif;
-background:rgba(4,20,29,.55);padding:10px 12px;border-radius:10px;pointer-events:none;max-width:70vw;}
+background:rgba(4,20,29,.55);padding:10px 12px;border-radius:10px;pointer-events:none;max-width:70vw;z-index:10;}
 #hud b{color:#fff;}
 #load{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#cfe8ef;
-font:14px -apple-system,system-ui,sans-serif;background:rgba(4,20,29,.7);padding:12px 18px;border-radius:10px;}
+font:14px -apple-system,system-ui,sans-serif;background:rgba(4,20,29,.7);padding:12px 18px;border-radius:10px;z-index:10;}
 #ab{position:fixed;right:12px;top:12px;display:flex;gap:8px;z-index:10;}
 #ab button{font:13px -apple-system,system-ui,sans-serif;color:#cfe8ef;background:rgba(4,20,29,.55);
 border:1px solid rgba(207,232,239,.35);border-radius:10px;padding:8px 14px;cursor:pointer;}
@@ -23,9 +23,9 @@ border:1px solid rgba(207,232,239,.35);border-radius:10px;padding:8px 14px;curso
 </script>
 </head>
 <body>
-<div id="hud"><b id="mesaName">Hero Mesa #1 — authored</b> &middot; Sunlit Shallows &middot; fixed set<br>drag to orbit &middot; pinch/scroll to zoom &middot; two-finger drag to pan<br><span id="mesaMeta">552 verts &middot; authored in Blender, not procedural</span></div>
-<div id="ab"><button id="btnAuthored" class="on">Authored</button><button id="btnAI">AI base</button></div>
-<div id="load">loading mesa&hellip;</div>
+<div id="hud"><b id="pieceName">Hill #1 &mdash; authored</b> &middot; Sunlit Shallows &middot; fixed set<br>drag to orbit &middot; pinch/scroll to zoom &middot; two-finger drag to pan<br><span id="pieceMeta">gentle slopes, flat shelves for vegetation &middot; no floor, drops into the depths</span></div>
+<div id="ab"><button id="btnHill" class="on">Hill #1</button><button id="btnMesa">Mesa #1</button></div>
+<div id="load">loading hill&hellip;</div>
 <canvas id="c"></canvas>
 <script type="module">
 import * as THREE from 'three';
@@ -38,11 +38,11 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 400);
-camera.position.set(26, 15, 26);
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 800);
+camera.position.set(135, 75, 135);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0.7, 5.5, 0);
+controls.target.set(0, 8, 0);
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.7;
 controls.enableDamping = true;
@@ -66,62 +66,71 @@ void main(){
 
 const rockFrag = `
 precision highp float;
-uniform vec3 sunDir; uniform vec3 camPos; uniform float time;
+uniform vec3 sunDir; uniform vec3 camPos; uniform float time; uniform float fogK;
 varying vec3 vWN; varying vec3 vWP;
 ${NOISE}
 void main(){
   vec3 N = normalize(vWN);
   float up = clamp(N.y, 0.0, 1.0);
-  // two-tone: warm amber tops, cool teal-gray sides
   vec3 warm = vec3(1.00, 0.70, 0.40);
   vec3 cool = vec3(0.32, 0.52, 0.55);
   vec3 albedo = mix(cool, warm, smoothstep(0.12, 0.72, up));
-  // large-scale mottling
   float m = fbm(vWP.xz*0.12 + vWP.y*0.07);
   albedo *= 0.82 + 0.36*m;
-  // fine grain
   float g = hash12(vec2(vWP.x*3.7 + vWP.z*1.3, vWP.y*4.1));
   albedo *= 0.93 + 0.14*g;
-  // sedimentary strata lines with wobble
   float wob = (fbm(vec2(vWP.x*0.25, vWP.z*0.25)) - 0.5) * 1.2;
   float s = fract((vWP.y + wob) / 2.4);
   float line = smoothstep(0.0, 0.05, s) * (1.0 - smoothstep(0.05, 0.13, s));
   albedo *= 1.0 - 0.28*line;
-  // lit lip just above each line
   float lip = (1.0 - smoothstep(0.13, 0.30, s)) * smoothstep(0.05, 0.13, s);
   albedo += vec3(1.0, 0.78, 0.52) * 0.12 * lip * (0.3 + 0.7*up);
-  // lighting: warm key + cool ambient
   float ndl = max(dot(N, sunDir), 0.0);
   vec3 col = albedo * (0.30 + 0.95*ndl);
   col += albedo * vec3(0.22, 0.42, 0.52) * (1.0 - up) * 0.45;
   col += vec3(1.0, 0.72, 0.42) * up * 0.28;
-  // underwater fog + depth blue-shift
   float dist = distance(camPos, vWP);
-  float f = 1.0 - exp(-dist * 0.011);
+  float f = 1.0 - exp(-dist * fogK);
   vec3 fogCol = vec3(0.045, 0.21, 0.29);
   fogCol = mix(fogCol, vec3(0.015, 0.09, 0.15), clamp(-vWP.y*0.045, 0.0, 1.0));
   col = mix(col, fogCol, f);
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-const sandFrag = `
+// Hill shader: same rock language, but flat upward shelves read as pale
+// sandy vegetation beds, and strata lines stay on the steeps.
+const hillFrag = `
 precision highp float;
-uniform vec3 sunDir; uniform vec3 camPos;
+uniform vec3 sunDir; uniform vec3 camPos; uniform float time; uniform float fogK;
 varying vec3 vWN; varying vec3 vWP;
 ${NOISE}
 void main(){
   vec3 N = normalize(vWN);
-  vec3 albedo = vec3(0.52, 0.47, 0.34);
-  float m = fbm(vWP.xz*0.35);
-  albedo *= 0.85 + 0.3*m;
-  float g = hash12(vWP.xz*8.0);
-  albedo *= 0.94 + 0.12*g;
+  float up = clamp(N.y, 0.0, 1.0);
+  vec3 warm = vec3(1.00, 0.70, 0.40);
+  vec3 cool = vec3(0.32, 0.52, 0.55);
+  vec3 albedo = mix(cool, warm, smoothstep(0.12, 0.72, up));
+  float m = fbm(vWP.xz*0.12 + vWP.y*0.07);
+  albedo *= 0.82 + 0.36*m;
+  float g = hash12(vec2(vWP.x*3.7 + vWP.z*1.3, vWP.y*4.1));
+  albedo *= 0.93 + 0.14*g;
+  float flat = smoothstep(0.70, 0.90, up);
+  vec3 sand = vec3(0.80, 0.74, 0.58) * (0.85 + 0.30*fbm(vWP.xz*0.22));
+  albedo = mix(albedo, sand, flat*0.92);
+  float wob = (fbm(vec2(vWP.x*0.25, vWP.z*0.25)) - 0.5) * 1.2;
+  float s = fract((vWP.y + wob) / 2.4);
+  float line = smoothstep(0.0, 0.05, s) * (1.0 - smoothstep(0.05, 0.13, s));
+  albedo *= 1.0 - 0.28*line*(1.0-flat);
+  float lip = (1.0 - smoothstep(0.13, 0.30, s)) * smoothstep(0.05, 0.13, s);
+  albedo += vec3(1.0, 0.78, 0.52) * 0.12 * lip * (0.3 + 0.7*up) * (1.0-flat);
   float ndl = max(dot(N, sunDir), 0.0);
-  vec3 col = albedo * (0.35 + 0.8*ndl);
-  col += albedo * vec3(0.25, 0.45, 0.55) * 0.3;
+  vec3 col = albedo * (0.30 + 0.95*ndl);
+  col += albedo * vec3(0.22, 0.42, 0.52) * (1.0 - up) * 0.45;
+  col += vec3(1.0, 0.72, 0.42) * up * 0.28;
   float dist = distance(camPos, vWP);
-  float f = 1.0 - exp(-dist * 0.011);
-  vec3 fogCol = mix(vec3(0.045,0.21,0.29), vec3(0.015,0.09,0.15), clamp(-vWP.y*0.045,0.0,1.0));
+  float f = 1.0 - exp(-dist * fogK);
+  vec3 fogCol = vec3(0.045, 0.21, 0.29);
+  fogCol = mix(fogCol, vec3(0.015, 0.09, 0.15), clamp(-vWP.y*0.045, 0.0, 1.0));
   col = mix(col, fogCol, f);
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -130,54 +139,32 @@ const rockUniforms = {
   sunDir: {value: new THREE.Vector3(0.45, 0.75, 0.35).normalize()},
   camPos: {value: camera.position},
   time: {value: 0},
-};
-const sandUniforms = {
-  sunDir: {value: new THREE.Vector3(0.45, 0.75, 0.35).normalize()},
-  camPos: {value: camera.position},
+  fogK: {value: 0.0035},
 };
 
-// sand disc to ground the mesa
-const sand = new THREE.Mesh(
-  new THREE.CircleGeometry(34, 48),
-  new THREE.ShaderMaterial({uniforms: sandUniforms, vertexShader: rockVert, fragmentShader: sandFrag})
-);
-sand.rotation.x = -Math.PI/2;
-sand.position.y = -0.6;
-scene.add(sand);
-
-// AI mesh shader: uses baked vertex colors from image-to-3D, same lighting+fog language
-const aiVert = `
-varying vec3 vWN; varying vec3 vWP; varying vec3 vCol;
-void main(){
-  vWN = normalize(mat3(modelMatrix) * normal);
-  vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWP = wp.xyz; vCol = color;
-  gl_Position = projectionMatrix * viewMatrix * wp;
-}`;
-const aiFrag = `
-precision highp float;
-uniform vec3 sunDir; uniform vec3 camPos;
-varying vec3 vWN; varying vec3 vWP; varying vec3 vCol;
-void main(){
-  vec3 N = normalize(vWN);
-  vec3 albedo = vCol;
-  float ndl = max(dot(N, sunDir), 0.0);
-  vec3 col = albedo * (0.32 + 0.95*ndl);
-  col += albedo * vec3(0.22, 0.42, 0.52) * 0.35;
-  float dist = distance(camPos, vWP);
-  float f = 1.0 - exp(-dist * 0.011);
-  vec3 fogCol = vec3(0.045, 0.21, 0.29);
-  fogCol = mix(fogCol, vec3(0.015, 0.09, 0.15), clamp(-vWP.y*0.045, 0.0, 1.0));
-  col = mix(col, fogCol, f);
-  gl_FragColor = vec4(col, 1.0);
-}`;
-
-const authored = new THREE.Group();
-const aiBase = new THREE.Group();
-aiBase.visible = false;
-scene.add(authored, aiBase);
+const hillGroup = new THREE.Group();
+const mesaGroup = new THREE.Group();
+mesaGroup.visible = false;
+scene.add(hillGroup, mesaGroup);
 let loaded = 0;
 const done = () => { if (++loaded === 2) document.getElementById('load').style.display = 'none'; };
+
+new GLTFLoader().load('hill1.glb', (gltf) => {
+  gltf.scene.traverse((o) => {
+    if (o.isMesh) {
+      // keep Blender's smooth vertex normals for the gentle slopes
+      o.material = new THREE.ShaderMaterial({
+        uniforms: rockUniforms, vertexShader: rockVert, fragmentShader: hillFrag,
+        side: THREE.DoubleSide,
+      });
+    }
+  });
+  hillGroup.add(gltf.scene);
+  done();
+}, undefined, (err) => {
+  document.getElementById('load').textContent = 'failed to load hill1.glb';
+  console.error(err);
+});
 
 new GLTFLoader().load('mesa1.glb', (gltf) => {
   gltf.scene.traverse((o) => {
@@ -191,47 +178,29 @@ new GLTFLoader().load('mesa1.glb', (gltf) => {
       });
     }
   });
-  authored.add(gltf.scene);
+  mesaGroup.add(gltf.scene);
   done();
 }, undefined, (err) => {
   document.getElementById('load').textContent = 'failed to load mesa1.glb';
   console.error(err);
 });
 
-new GLTFLoader().load('ai_mesa_clean.glb', (gltf) => {
-  gltf.scene.traverse((o) => {
-    if (o.isMesh) {
-      let g = o.geometry.toNonIndexed();
-      g.computeVertexNormals();
-      o.geometry = g;
-      o.material = new THREE.ShaderMaterial({
-        uniforms: rockUniforms, vertexShader: aiVert, fragmentShader: aiFrag,
-        side: THREE.DoubleSide, vertexColors: true,
-      });
-    }
-  });
-  aiBase.add(gltf.scene);
-  done();
-}, undefined, (err) => {
-  document.getElementById('load').textContent = 'failed to load ai_mesa_clean.glb';
-  console.error(err);
-});
-
-const btnA = document.getElementById('btnAuthored');
-const btnB = document.getElementById('btnAI');
-const mesaName = document.getElementById('mesaName');
-const mesaMeta = document.getElementById('mesaMeta');
+const btnH = document.getElementById('btnHill');
+const btnM = document.getElementById('btnMesa');
+const pieceName = document.getElementById('pieceName');
+const pieceMeta = document.getElementById('pieceMeta');
 function show(which){
-  const a = which === 'authored';
-  authored.visible = a; aiBase.visible = !a;
-  btnA.classList.toggle('on', a); btnB.classList.toggle('on', !a);
-  mesaName.textContent = a ? 'Hero Mesa #1 — authored' : 'Hero Mesa #1 — AI base';
-  mesaMeta.textContent = a
-    ? '552 verts · authored in Blender, not procedural'
-    : '3.5k tris · TripoSR image-to-3D from concept art, decimated, vertex colors';
+  const h = which === 'hill';
+  rockUniforms.fogK.value = h ? 0.0035 : 0.011;
+  hillGroup.visible = h; mesaGroup.visible = !h;
+  btnH.classList.toggle('on', h); btnM.classList.toggle('on', !h);
+  pieceName.textContent = h ? 'Hill #1 — authored' : 'Hero Mesa #1 — authored';
+  pieceMeta.textContent = h
+    ? 'gentle slopes, flat shelves for vegetation · no floor, drops into the depths'
+    : '552 verts · authored in Blender, not procedural';
 }
-btnA.onclick = () => show('authored');
-btnB.onclick = () => show('ai');
+btnH.onclick = () => show('hill');
+btnM.onclick = () => show('mesa');
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
