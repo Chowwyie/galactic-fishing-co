@@ -21,6 +21,7 @@ const PRESET_ENTRY := -280.0
 const PRESET_CENTER := 0.0
 const PRESET_DEEP := 320.0
 var _debug_label: Label
+var _hills: Node3D
 var _pan_tween: Tween
 
 @onready var camera: Camera3D = $Camera3D
@@ -62,7 +63,10 @@ func _process(delta: float) -> void:
 		camera.position.x = clampf(camera.position.x + dir * PAN_SPEED * delta, -PAN_RANGE, PAN_RANGE)
 	if _debug_label:
 		var pct := (camera.position.x - ZONE_MIN_X) / (ZONE_MAX_X - ZONE_MIN_X) * 100.0
-		_debug_label.text = "DEBUG x=%d  %d%%" % [roundi(camera.position.x), roundi(pct)]
+		var dtxt := "CAM x=%d y=%d %d%%" % [roundi(camera.position.x), roundi(camera.position.y), roundi(pct)]
+		if _hills:
+			dtxt += " | HILL d=%d" % roundi(camera.position.distance_to(_hills.global_position))
+		_debug_label.text = dtxt
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -167,6 +171,7 @@ func _build_hills() -> void:
 	hills.position = Vector3(0.0, 10.0, -150.0)
 	hills.scale = Vector3(0.35, 0.42, 0.35)
 	hills.rotation.y = 0.0
+	_hills = hills
 	add_child(hills)
 	var mat := ShaderMaterial.new()
 	mat.shader = HILL_SHADER
