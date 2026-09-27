@@ -102,25 +102,61 @@ func _jump_to(tx: float) -> void:
 
 
 func _copy_debug_state() -> void:
-	var cp := camera.global_position
-	var txt := "CAM x=%.2f y=%.2f z=%.2f" % [cp.x, cp.y, cp.z]
-	if _hills:
-		var hp := _hills.global_position
-		txt += " HILL x=%.2f y=%.2f z=%.2f" % [hp.x, hp.y, hp.z]
-		var inside: Array[String] = []
-		for mi in _hills.find_children("*", "MeshInstance3D", true, false):
-			var m := mi as MeshInstance3D
-			if m and m.mesh:
-				var gaabb := m.global_transform * m.get_aabb()
-				if gaabb.has_point(cp):
-					inside.append(m.name)
-		if inside.is_empty():
-			txt += " INSIDE none"
-		else:
-			txt += " INSIDE " + str(inside)
+	var txt := "FRAME BREAKDOWN\n"
+	txt += "Camera: (%.2f, %.2f, %.2f)\n" % [camera.global_position.x, camera.global_position.y, camera.global_position.z]
+	var vp_size := get_viewport().get_visible_rect().size
+	txt += "Viewport: %dx%d\n" % [int(vp_size.x), int(vp_size.y)]
+	var idx := 0
+	for node in get_tree().get_nodes_in_group("__frame_dump__"):
+		node.remove_from_group("__frame_dump__")
+	# Collect all MeshInstance3D
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(self, meshes)
+	for m in meshes:
+		if not m.visible or not m.mesh:
+			continue
+		var wp := m.global_position
+		if not camera.is_position_in_frustum(wp):
+			continue
+		var sp := camera.unproject_position(wp)
+		var dist := camera.global_position.distance_to(wp)
+		# Project AABB corners to get screen bounds
+		var aabb := m.global_transform * m.get_aabb()
+		var min2 := Vector2(INF, INF)
+		var max2 := Vector2(-INF, -INF)
+		for cx in [aabb.position.x, aabb.end.x]:
+			for cy in [aabb.position.y, aabb.end.y]:
+				for cz in [aabb.position.z, aabb.end.z]:
+					var corner := Vector3(cx, cy, cz)
+					if camera.is_position_behind(corner):
+						continue
+					var p2 := camera.unproject_position(corner)
+					min2.x = minf(min2.x, p2.x)
+					min2.y = minf(min2.y, p2.y)
+					max2.x = maxf(max2.x, p2.x)
+					max2.y = maxf(max2.y, p2.y)
+		if min2.x > max2.x:
+			continue
+		var w := max2.x - min2.x
+		var h := max2.y - min2.y
+		txt += "%d. %s | world(%.1f,%.1f,%.1f) | screen(%.0f,%.0f %dx%d) | d=%.1f\n" % [idx, m.name, wp.x, wp.y, wp.z, min2.x, min2.y, int(w), int(h), dist]
+		idx += 1
+		if idx >= 20:
+			txt += "... (truncated)\n"
+			break
+	if idx == 0:
+		txt += "(no meshes in frustum)\n"
 	DisplayServer.clipboard_set(txt)
 	if _debug_label:
-		_debug_label.text = "Copied!"
+		_debug_label.text = "Copied %d!" % idx
+
+
+func _collect_meshes(n: Node, out: Array[MeshInstance3D]) -> void:
+	if n is MeshInstance3D:
+		out.append(n as MeshInstance3D)
+	for child in n.get_children():
+		_collect_meshes(child, out)
+
 
 func _debug_bg() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
