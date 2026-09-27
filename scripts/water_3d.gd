@@ -107,21 +107,28 @@ func _copy_debug_state() -> void:
 	var vp_size := get_viewport().get_visible_rect().size
 	txt += "Viewport: %dx%d\n" % [int(vp_size.x), int(vp_size.y)]
 	var idx := 0
-	for node in get_tree().get_nodes_in_group("__frame_dump__"):
-		node.remove_from_group("__frame_dump__")
-	# Collect all MeshInstance3D
 	var meshes: Array[MeshInstance3D] = []
 	_collect_meshes(self, meshes)
 	for m in meshes:
 		if not m.visible or not m.mesh:
 			continue
 		var wp := m.global_position
-		if not camera.is_position_in_frustum(wp):
-			continue
-		var sp := camera.unproject_position(wp)
-		var dist := camera.global_position.distance_to(wp)
-		# Project AABB corners to get screen bounds
 		var aabb := m.global_transform * m.get_aabb()
+		# Check if ANY AABB corner is in frustum (not just origin)
+		var any_in := false
+		for cx in [aabb.position.x, aabb.end.x]:
+			for cy in [aabb.position.y, aabb.end.y]:
+				for cz in [aabb.position.z, aabb.end.z]:
+					if camera.is_position_in_frustum(Vector3(cx, cy, cz)):
+						any_in = true
+						break
+				if any_in:
+					break
+			if any_in:
+				break
+		if not any_in:
+			continue
+		var dist := camera.global_position.distance_to(wp)
 		var min2 := Vector2(INF, INF)
 		var max2 := Vector2(-INF, -INF)
 		for cx in [aabb.position.x, aabb.end.x]:
@@ -139,7 +146,8 @@ func _copy_debug_state() -> void:
 			continue
 		var w := max2.x - min2.x
 		var h := max2.y - min2.y
-		txt += "%d. %s | world(%.1f,%.1f,%.1f) | screen(%.0f,%.0f %dx%d) | d=%.1f\n" % [idx, m.name, wp.x, wp.y, wp.z, min2.x, min2.y, int(w), int(h), dist]
+		# Also report AABB world bounds
+		txt += "%d. %s | world(%.1f,%.1f,%.1f) | aabbY[%.1f,%.1f] | screen(%.0f,%.0f %dx%d) | d=%.1f\n" % [idx, m.name, wp.x, wp.y, wp.z, aabb.position.y, aabb.end.y, min2.x, min2.y, int(w), int(h), dist]
 		idx += 1
 		if idx >= 20:
 			txt += "... (truncated)\n"
