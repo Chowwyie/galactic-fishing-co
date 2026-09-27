@@ -1,11 +1,13 @@
 extends Node3D
 ## 3D water volume spike: Camera3D + water-sky environment + god-ray cards
-## as real 3D quads + two-layer CPUParticles3D marine snow. No set pieces.
+## as real 3D quads + two-layer CPUParticles3D marine snow, plus the
+## faceted hill cluster as the background behind the 2D play plane.
 
 const CARD_COUNT := 8
 const RAY_SHADER := preload("res://shaders/ray_card_3d.gdshader")
+const HILL_SCENE := preload("res://models/hill_cluster.glb")
+const HILL_SHADER := preload("res://shaders/hill_facet.gdshader")
 
-var _t := 0.0
 var _cam_base := Vector3(0.0, 2.0, 5.0)
 var _cards_root: Node3D
 var _snow_root: Node3D
@@ -14,15 +16,12 @@ var _snow_root: Node3D
 
 
 func _ready() -> void:
+	# Camera is locked on the single 2D play plane: straight-on, fixed.
+	camera.position = _cam_base
 	_build_light()
+	_build_hills()
 	get_viewport().size_changed.connect(_rebuild)
 	_rebuild()
-
-
-func _process(delta: float) -> void:
-	_t += delta
-	# Barely-there drift so the cards show parallax against the water.
-	camera.position = _cam_base + Vector3(sin(_t * 0.05) * 1.5, sin(_t * 0.037 + 1.3) * 1.0, 0.0)
 
 
 func _build_light() -> void:
@@ -33,6 +32,26 @@ func _build_light() -> void:
 	sun.light_energy = 1.0
 	sun.shadow_enabled = false
 	add_child(sun)
+
+
+func _build_hills() -> void:
+	# Background set: the hill cluster sits behind the 2D play plane,
+	# massive in frame. The camera stays locked on the play plane; the hills
+	# are dressed with the faceted 3-step toon ramp so every facet reads as
+	# one flat color cell against the pixel-art foreground.
+	var hills: Node3D = HILL_SCENE.instantiate()
+	hills.name = "HillCluster"
+	# Backdrop framing: the range is squashed in depth into a shallow frieze
+	# behind the play plane, cropped by the fixed camera so the hero hill is
+	# colossal in frame. Camera stays locked on the 2D play plane.
+	hills.position = Vector3(0.0, 10.0, -80.0)
+	hills.scale = Vector3(0.35, 0.35, 0.35)
+	hills.rotation.y = 0.0
+	add_child(hills)
+	var mat := ShaderMaterial.new()
+	mat.shader = HILL_SHADER
+	for mi in hills.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_override = mat
 
 
 func _rebuild() -> void:
@@ -89,7 +108,7 @@ func _build_snow() -> void:
 	# direction, local -z runs away from the camera along the top of the view.
 	# Motes spawn in a thin strip just above the frame and fall through it, so
 	# nothing ever spawns or dies inside the visible volume. Parented to the
-	# camera so the strip tracks the drift.
+	# camera (fixed, no drift).
 	_snow_root = Node3D.new()
 	_snow_root.name = "Snow"
 	_snow_root.rotation.x = deg_to_rad(30.0)
