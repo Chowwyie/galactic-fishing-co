@@ -13,13 +13,18 @@ background:rgba(4,20,29,.55);padding:10px 12px;border-radius:10px;pointer-events
 #hud b{color:#fff;}
 #load{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#cfe8ef;
 font:14px -apple-system,system-ui,sans-serif;background:rgba(4,20,29,.7);padding:12px 18px;border-radius:10px;}
+#ab{position:fixed;right:12px;top:12px;display:flex;gap:8px;}
+#ab button{font:13px -apple-system,system-ui,sans-serif;color:#cfe8ef;background:rgba(4,20,29,.55);
+border:1px solid rgba(207,232,239,.35);border-radius:10px;padding:8px 14px;cursor:pointer;}
+#ab button.on{background:rgba(38,120,150,.75);color:#fff;border-color:#7fd4e8;}
 </style>
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
 </script>
 </head>
 <body>
-<div id="hud"><b>Hero Mesa #1</b> &middot; Sunlit Shallows &middot; fixed set<br>drag to orbit &middot; pinch/scroll to zoom &middot; two-finger drag to pan<br>552 verts &middot; authored in Blender, not procedural</div>
+<div id="hud"><b id="mesaName">Hero Mesa #1 — authored</b> &middot; Sunlit Shallows &middot; fixed set<br>drag to orbit &middot; pinch/scroll to zoom &middot; two-finger drag to pan<br><span id="mesaMeta">552 verts &middot; authored in Blender, not procedural</span></div>
+<div id="ab"><button id="btnAuthored" class="on">Authored</button><button id="btnAI">AI base</button></div>
 <div id="load">loading mesa&hellip;</div>
 <canvas id="c"></canvas>
 <script type="module">
@@ -140,11 +145,43 @@ sand.rotation.x = -Math.PI/2;
 sand.position.y = -0.6;
 scene.add(sand);
 
+// AI mesh shader: uses baked vertex colors from image-to-3D, same lighting+fog language
+const aiVert = `
+varying vec3 vWN; varying vec3 vWP; varying vec3 vCol;
+void main(){
+  vWN = normalize(mat3(modelMatrix) * normal);
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWP = wp.xyz; vCol = color;
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}`;
+const aiFrag = `
+precision highp float;
+uniform vec3 sunDir; uniform vec3 camPos;
+varying vec3 vWN; varying vec3 vWP; varying vec3 vCol;
+void main(){
+  vec3 N = normalize(vWN);
+  vec3 albedo = vCol;
+  float ndl = max(dot(N, sunDir), 0.0);
+  vec3 col = albedo * (0.32 + 0.95*ndl);
+  col += albedo * vec3(0.22, 0.42, 0.52) * 0.35;
+  float dist = distance(camPos, vWP);
+  float f = 1.0 - exp(-dist * 0.011);
+  vec3 fogCol = vec3(0.045, 0.21, 0.29);
+  fogCol = mix(fogCol, vec3(0.015, 0.09, 0.15), clamp(-vWP.y*0.045, 0.0, 1.0));
+  col = mix(col, fogCol, f);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const authored = new THREE.Group();
+const aiBase = new THREE.Group();
+aiBase.visible = false;
+scene.add(authored, aiBase);
+let loaded = 0;
+const done = () => { if (++loaded === 2) document.getElementById('load').style.display = 'none'; };
+
 new GLTFLoader().load('mesa1.glb', (gltf) => {
-  document.getElementById('load').style.display = 'none';
   gltf.scene.traverse((o) => {
     if (o.isMesh) {
-      // crisp facets: de-index + face normals
       let g = o.geometry.toNonIndexed();
       g.computeVertexNormals();
       o.geometry = g;
@@ -154,11 +191,47 @@ new GLTFLoader().load('mesa1.glb', (gltf) => {
       });
     }
   });
-  scene.add(gltf.scene);
+  authored.add(gltf.scene);
+  done();
 }, undefined, (err) => {
   document.getElementById('load').textContent = 'failed to load mesa1.glb';
   console.error(err);
 });
+
+new GLTFLoader().load('ai_mesa_clean.glb', (gltf) => {
+  gltf.scene.traverse((o) => {
+    if (o.isMesh) {
+      let g = o.geometry.toNonIndexed();
+      g.computeVertexNormals();
+      o.geometry = g;
+      o.material = new THREE.ShaderMaterial({
+        uniforms: rockUniforms, vertexShader: aiVert, fragmentShader: aiFrag,
+        side: THREE.DoubleSide, vertexColors: true,
+      });
+    }
+  });
+  aiBase.add(gltf.scene);
+  done();
+}, undefined, (err) => {
+  document.getElementById('load').textContent = 'failed to load ai_mesa_clean.glb';
+  console.error(err);
+});
+
+const btnA = document.getElementById('btnAuthored');
+const btnB = document.getElementById('btnAI');
+const mesaName = document.getElementById('mesaName');
+const mesaMeta = document.getElementById('mesaMeta');
+function show(which){
+  const a = which === 'authored';
+  authored.visible = a; aiBase.visible = !a;
+  btnA.classList.toggle('on', a); btnB.classList.toggle('on', !a);
+  mesaName.textContent = a ? 'Hero Mesa #1 — authored' : 'Hero Mesa #1 — AI base';
+  mesaMeta.textContent = a
+    ? '552 verts · authored in Blender, not procedural'
+    : '3.5k tris · TripoSR image-to-3D from concept art, decimated, vertex colors';
+}
+btnA.onclick = () => show('authored');
+btnB.onclick = () => show('ai');
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
