@@ -50,6 +50,13 @@ func _check_debug() -> void:
 		if win != null:
 			var search: String = str(win.location.search)
 			_debug_pan = search.contains("debug_pan")
+			# ?cam_x=129 — jump the camera to an exact x for debugging
+			var cx_idx := search.find("cam_x=")
+			if cx_idx >= 0:
+				var cx_end := search.find("&", cx_idx)
+				var cx_str := search.substr(cx_idx + 6, cx_end - cx_idx - 6 if cx_end >= 0 else search.length())
+				if cx_str.is_valid_float():
+					_cam_base.x = clampf(cx_str.to_float(), -PAN_RANGE, PAN_RANGE)
 
 
 func _process(delta: float) -> void:
