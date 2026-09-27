@@ -1,0 +1,65 @@
+name: Build and Deploy Godot Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenes/**'
+      - 'scripts/**'
+      - 'shaders/**'
+      - 'models/**'
+      - 'project.godot'
+      - 'export_presets.cfg'
+      - 'icon.svg'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          include-templates: true
+
+      - name: Import project
+        run: godot --headless --import --path . --quit || true
+
+      - name: Export Web build
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release "Web" build/web/index.html
+          ls -lh build/web/index.pck
+
+      - name: Verify PCK contents
+        run: |
+          # Fail if the hill model is not in the PCK (prevents deploying broken builds)
+          if ! strings build/web/index.pck | grep -q "hill_cluster"; then
+            echo "ERROR: hill_cluster not found in PCK - export is broken"
+            exit 1
+          fi
+          echo "PCK verification passed"
+
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p deploy/water
+          cp -r build/web/* deploy/water/
+          cp -r build/web/* deploy/
+          # Remove the nested water/water if it exists
+          rm -rf deploy/water/water || true
+          ls -lh deploy/index.pck deploy/water/index.pck
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          keep_files: true
+          commit_message: "Deploy Godot web build from main (${{ github.sha }})"
