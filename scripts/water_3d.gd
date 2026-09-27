@@ -3,7 +3,8 @@ extends Node3D
 ## as real 3D quads + two-layer CPUParticles3D marine snow, plus the
 ## faceted hill cluster as the background behind the 2D play plane.
 
-const CARD_COUNT := 8
+const CARD_COUNT := 24
+const CARD_WRAP := 240.0
 const RAY_SHADER := preload("res://shaders/ray_card_3d.gdshader")
 const HILL_SCENE := preload("res://models/hill_cluster.glb")
 const HILL_SHADER := preload("res://shaders/hill_facet.gdshader")
@@ -52,6 +53,7 @@ func _check_debug() -> void:
 
 
 func _process(delta: float) -> void:
+	_wrap_cards()
 	if not _debug_pan:
 		return
 	var dir := 0.0
@@ -292,10 +294,26 @@ func _frustum_half_width(dist: float, aspect: float) -> float:
 	return dist * tan(deg_to_rad(camera.fov * 0.5)) * aspect
 
 
+func _wrap_cards() -> void:
+	# World-space rays stay fixed in the set (correct parallax). As the camera
+	# pans, cards that fall behind the wrap window recycle ahead of it, so the
+	# density around the camera is constant and nothing ever pops in-frame.
+	if _cards_root == null or camera == null:
+		return
+	var half := CARD_WRAP * 0.5
+	var cx := camera.position.x
+	for c in _cards_root.get_children():
+		var dx: float = c.position.x - cx
+		if dx < -half:
+			c.position.x += CARD_WRAP
+		elif dx > half:
+			c.position.x -= CARD_WRAP
+
+
 func _build_cards() -> void:
 	_cards_root = Node3D.new()
 	_cards_root.name = "RayCards"
-	camera.add_child(_cards_root)
+	add_child(_cards_root)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260926
 	var aspect := _viewport_aspect()
@@ -314,7 +332,7 @@ func _build_cards() -> void:
 		mi.material_override = mat
 		# Tall enough that the top is always above the frame: shafts emerge
 		# from the bright surface water, never from a visible edge.
-		mi.position = Vector3(rng.randf_range(-0.85, 0.85) * hw, rng.randf_range(16.0, 26.0), z)
+		mi.position = Vector3(rng.randf_range(-1.0, 1.0) * CARD_WRAP * 0.5, rng.randf_range(16.0, 26.0), z)
 		mi.rotation.z = deg_to_rad(10.0)
 		_cards_root.add_child(mi)
 
