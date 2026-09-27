@@ -164,7 +164,7 @@ func _build_hills() -> void:
 	# Backdrop framing: the range is squashed in depth into a shallow frieze
 	# behind the play plane, cropped by the fixed camera so the hero hill is
 	# colossal in frame. Camera stays locked on the 2D play plane.
-	hills.position = Vector3(0.0, 10.0, -100.0)
+	hills.position = Vector3(0.0, 10.0, -150.0)
 	hills.scale = Vector3(0.35, 0.42, 0.35)
 	hills.rotation.y = 0.0
 	add_child(hills)
