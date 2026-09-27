@@ -14,6 +14,14 @@ var _snow_root: Node3D
 var _debug_pan := false
 const PAN_RANGE := 350.0
 const PAN_SPEED := 60.0
+# Debug camera tools (behind ?debug_pan, never part of the game).
+const ZONE_MIN_X := -430.0
+const ZONE_MAX_X := 438.0
+const PRESET_ENTRY := -280.0
+const PRESET_CENTER := 0.0
+const PRESET_DEEP := 320.0
+var _debug_label: Label
+var _pan_tween: Tween
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -21,16 +29,25 @@ const PAN_SPEED := 60.0
 func _ready() -> void:
 	# Camera is locked on the single 2D play plane: straight-on, fixed.
 	# Debug: ?debug_pan=1 in URL enables WASD/arrow panning (not part of game).
-	if OS.has_feature("web"):
-		var win = JavaScriptBridge.get_interface("window")
-		if win != null:
-			var search: String = str(win.location.search)
-			_debug_pan = search.contains("debug_pan")
+	_check_debug()
 	camera.position = _cam_base
 	_build_light()
 	_build_hills()
 	get_viewport().size_changed.connect(_rebuild)
 	_rebuild()
+	if _debug_pan:
+		_build_debug_ui()
+
+
+func _check_debug() -> void:
+	if "--debug-pan" in OS.get_cmdline_user_args():
+		_debug_pan = true
+		return
+	if OS.has_feature("web"):
+		var win = JavaScriptBridge.get_interface("window")
+		if win != null:
+			var search: String = str(win.location.search)
+			_debug_pan = search.contains("debug_pan")
 
 
 func _process(delta: float) -> void:
@@ -43,6 +60,88 @@ func _process(delta: float) -> void:
 		dir += 1.0
 	if dir != 0.0:
 		camera.position.x = clampf(camera.position.x + dir * PAN_SPEED * delta, -PAN_RANGE, PAN_RANGE)
+	if _debug_label:
+		var pct := (camera.position.x - ZONE_MIN_X) / (ZONE_MAX_X - ZONE_MIN_X) * 100.0
+		_debug_label.text = "DEBUG x=%d  %d%%" % [roundi(camera.position.x), roundi(pct)]
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Touch-drag (iPhone) and mouse-drag pan: content follows the finger.
+	# UI buttons consume their own touches, so drags starting on them don't pan.
+	if not _debug_pan:
+		return
+	if event is InputEventScreenDrag:
+		_pan_by_pixels((event as InputEventScreenDrag).relative.x)
+	elif event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if mm.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			_pan_by_pixels(mm.relative.x)
+
+
+func _pan_by_pixels(px: float) -> void:
+	if _pan_tween and _pan_tween.is_valid():
+		_pan_tween.kill()
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x <= 0.0:
+		return
+	var hw := _frustum_half_width(105.0, vp.x / vp.y)
+	var wpp := hw * 2.0 / vp.x
+	camera.position.x = clampf(camera.position.x - px * wpp, -PAN_RANGE, PAN_RANGE)
+
+
+func _jump_to(tx: float) -> void:
+	if _pan_tween and _pan_tween.is_valid():
+		_pan_tween.kill()
+	_pan_tween = create_tween()
+	_pan_tween.tween_property(camera, "position:x",
+			clampf(tx, -PAN_RANGE, PAN_RANGE), 0.6)		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _debug_bg() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.0, 0.0, 0.0, 0.45)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	return sb
+
+
+func _build_debug_ui() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "DebugUI"
+	add_child(layer)
+	# Position readout, top-left.
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _debug_bg())
+	panel.position = Vector2(16, 16)
+	_debug_label = Label.new()
+	_debug_label.add_theme_font_size_override("font_size", 22)
+	_debug_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
+	panel.add_child(_debug_label)
+	layer.add_child(panel)
+	# Jump presets, bottom-center. Big touch targets for iPhone.
+	var bar := HBoxContainer.new()
+	bar.anchor_left = 0.5
+	bar.anchor_right = 0.5
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.offset_left = -200.0
+	bar.offset_right = 200.0
+	bar.offset_top = -104.0
+	bar.offset_bottom = -32.0
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation", 12)
+	layer.add_child(bar)
+	for preset in [["Entry", PRESET_ENTRY], ["Center", PRESET_CENTER], ["Deep", PRESET_DEEP]]:
+		var b := Button.new()
+		b.text = preset[0]
+		b.custom_minimum_size = Vector2(112, 64)
+		b.add_theme_font_size_override("font_size", 24)
+		var tx: float = preset[1]
+		b.pressed.connect(_jump_to.bind(tx))
+		bar.add_child(b)
 
 
 func _build_light() -> void:
