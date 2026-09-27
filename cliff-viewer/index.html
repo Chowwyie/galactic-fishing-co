@@ -39,7 +39,7 @@ renderer.setSize(innerWidth, innerHeight);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 2000);
-camera.position.set(700, 360, 700);
+camera.position.set(880, 440, 880);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 8, 0);
@@ -198,7 +198,7 @@ function show(which){
   pieceMeta.textContent = h
     ? 'massive smooth slopes, slow descent · no floor, drops into the depths'
     : '552 verts · authored in Blender, not procedural';
-  if (h) { camera.position.set(700, 360, 700); controls.target.set(0, 0, 0); }
+  if (h) { camera.position.set(880, 440, 880); controls.target.set(80, 0, 0); }
   else   { camera.position.set(135, 75, 135); controls.target.set(0, 8, 0); }
 }
 btnH.onclick = () => show('hill');
